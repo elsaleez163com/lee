@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="copyright" content="广东交通职业技术学院●课程资源开发团队●版权所有">
+<title>网络拓扑仿真模拟器 - Network Topology Simulator</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --panel:#ffffff; --panel-2:#f8fafc; --line:#e2e8f0; --line-strong:#cbd5e1;
+    --text:#1e293b; --text-2:#475569; --muted:#94a3b8;
+    --accent:#2563eb; --accent-soft:#dbeafe;
+    --warn:#f59e0b; --error:#ef4444; --ok:#10b981;
+    --router:#ff6b5b; --switch:#14b8a6; --firewall:#f0893a; --pc:#4d8bd6; --server:#8b6fd6; --cloud:#94a3b8;
+    --sel:#ffd166;
+    --shadow:0 1px 3px rgba(15,23,42,.08),0 4px 16px rgba(15,23,42,.05);
+    --font:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--font);color:var(--text);background:var(--bg);font-size:14px;overflow:hidden;display:flex;flex-direction:column}
+
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:14px;flex:0 0 auto;box-shadow:var(--shadow);z-index:20}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#2563eb,#14b8a6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:17px}
+  .brand h1{font-size:18px;font-weight:700;letter-spacing:.2px}
+  .brand .sub{font-size:11px;color:var(--muted);margin-top:1px}
+  .brand .copyright{font-size:13px;font-weight:600;color:#b45309;margin-top:3px;letter-spacing:.3px}
+  .toolbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto}
+  button{font-family:var(--font);font-size:13px;cursor:pointer;border:1px solid var(--line-strong);background:#fff;color:var(--text);border-radius:7px;padding:7px 12px;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+  button:hover{background:var(--panel-2);border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary:hover{background:#1d4ed8}
+  button.ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+  button.ok:hover{background:#059669}
+  button.danger{color:var(--error);border-color:#fecaca}
+  button.danger:hover{background:#fef2f2;border-color:var(--error)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .tool-sep{width:1px;height:22px;background:var(--line);margin:0 3px}
+
+  main{display:flex;flex:1;min-height:0}
+  .left{width:208px;flex:0 0 208px;background:var(--panel);border-right:1px solid var(--line);padding:14px 12px;overflow-y:auto}
+  .panel-title{font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+  .palette{display:flex;flex-direction:column;gap:8px}
+  .palette-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px dashed var(--line-strong);border-radius:9px;background:var(--panel-2);cursor:grab;transition:.15s;user-select:none}
+  .palette-item:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-1px)}
+  .palette-item:active{cursor:grabbing}
+  .palette-item .ic{width:34px;height:34px;flex:0 0 34px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff}
+  .palette-item .ic svg{width:22px;height:22px}
+  .palette-item .meta b{display:block;font-size:13px}
+  .palette-item .meta small{color:var(--muted);font-size:10px}
+  .link-types{display:flex;flex-direction:column;gap:6px}
+  .link-type-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1.5px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;transition:.15s;user-select:none}
+  .link-type-item:hover{border-color:var(--accent)}
+  .link-type-item.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 2px rgba(37,99,235,.12)}
+  .link-type-item .sample{width:28px;height:0;flex:0 0 28px;border-top-width:3px;border-top-style:solid}
+  .link-type-item .lt-meta b{display:block;font-size:12px}
+  .link-type-item .lt-meta small{color:var(--muted);font-size:10px}
+  .hint{margin-top:18px;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:10px 11px;font-size:11.5px;line-height:1.7;color:#92400e}
+  .hint b{display:block;margin-bottom:4px;font-size:12px}
+  .hint .step{display:flex;gap:6px;margin-top:3px}
+  .hint .num{background:#f59e0b;color:#fff;border-radius:50%;width:16px;height:16px;flex:0 0 16px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+
+  .center{flex:1;position:relative;min-width:0;overflow:hidden;background-color:#fbfcfe}
+  .canvas-grid{position:absolute;inset:0;background-image:radial-gradient(#cbd5e1 1px,transparent 1px);background-size:22px 22px;opacity:.6;pointer-events:none}
+  #linkLayer,#packetLayer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+  #linkLayer .link-hit{pointer-events:stroke;cursor:pointer}
+  #nodeLayer{position:absolute;inset:0;z-index:2;pointer-events:none}
+
+  .device{position:absolute;width:104px;pointer-events:auto;cursor:grab;user-select:none}
+  .device.dragging{cursor:grabbing}
+  .device.selected .device-body{outline:2px solid var(--sel);outline-offset:2px;box-shadow:0 0 0 4px rgba(255,209,102,.35),var(--shadow)}
+  .device-body{background:#fff;border:1px solid var(--line-strong);border-radius:10px;box-shadow:var(--shadow);padding:7px 4px 5px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:box-shadow .15s}
+  .device-body:hover{box-shadow:0 3px 10px rgba(15,23,42,.16)}
+  .device-icon{width:38px;height:30px;display:flex;align-items:center;justify-content:center}
+  .device-icon svg{width:36px;height:28px}
+  .device-name{font-size:11.5px;font-weight:600;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+  .device-type{font-size:9px;color:var(--muted);margin-top:-2px}
+  .ports{display:flex;justify-content:center;gap:5px;margin-top:3px;height:14px}
+  .port{width:13px;height:11px;border-radius:3px;background:#cbd5e1;border:1px solid #94a3b8;cursor:crosshair;transition:.12s;position:relative}
+  .port:hover{background:var(--accent);border-color:var(--accent);transform:scale(1.15)}
+  .port.linked{background:#334155;border-color:#1e293b}
+  .port.link-start{background:var(--sel);border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.4)}
+  .port.has-ip::after{content:"";position:absolute;top:-3px;right:-3px;width:5px;height:5px;border-radius:50%;background:var(--ok)}
+
+  .status-marker{animation:errPulse 1.1s ease-in-out infinite;transform-box:fill-box;transform-origin:center;pointer-events:none}
+  @keyframes errPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.2)}}
+  .pkt{filter:drop-shadow(0 0 3px currentColor);pointer-events:none}
+
+  .canvas-tip{position:absolute;bottom:12px;left:12px;background:rgba(30,41,59,.86);color:#fff;font-size:11.5px;padding:7px 12px;border-radius:7px;pointer-events:none;z-index:5}
+  .canvas-badge{position:absolute;top:12px;left:12px;display:flex;gap:8px;z-index:5}
+  .badge{background:#fff;border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:11.5px;color:var(--text-2);box-shadow:var(--shadow)}
+  .badge b{color:var(--text);font-size:13px}
+  .legend{position:absolute;top:12px;right:12px;background:#fff;border:1px solid var(--line);border-radius:7px;padding:7px 10px;font-size:10.5px;color:var(--text-2);box-shadow:var(--shadow);z-index:5;line-height:1.7}
+  .legend i{display:inline-block;width:14px;height:0;border-top:3px solid;margin-right:5px;vertical-align:middle}
+
+  .right{width:340px;flex:0 0 340px;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .tabs{display:flex;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .tab{flex:1;text-align:center;padding:11px 4px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
+  .tab:hover{color:var(--text)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .tab-content{flex:1;overflow-y:auto;padding:14px;display:none}
+  .tab-content.active{display:block}
+
+  .empty-state{text-align:center;color:var(--muted);padding:48px 16px;line-height:1.8}
+  .empty-state .big{font-size:38px;opacity:.4;margin-bottom:8px}
+
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin-bottom:5px}
+  .field input,.field select{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:7px;font-size:13px;font-family:var(--font);color:var(--text);background:#fff}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .dev-head{display:flex;align-items:center;gap:10px;padding:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;margin-bottom:14px}
+  .dev-head .ic{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 40px}
+  .dev-head .ic svg{width:26px;height:24px}
+  .dev-head b{font-size:14px}
+  .dev-head small{color:var(--muted);font-size:11px}
+  .section-label{font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+  .itf-card{border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:8px;background:#fff}
+  .itf-card .itf-title{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:7px;display:flex;justify-content:space-between;align-items:center}
+  .itf-card .itf-title .tag{font-size:9px;font-weight:600;color:var(--muted);background:var(--panel-2);padding:2px 6px;border-radius:10px}
+  .itf-row{display:flex;gap:6px}
+  .itf-row .field{flex:1;margin:0}
+  .itf-row .field.ip{flex:1.4}
+  .mini-input{padding:6px 8px;font-size:12px}
+  .itf-status{font-size:10.5px;margin-top:6px;color:var(--muted)}
+  .itf-status.up{color:var(--ok)}
+  .itf-status.bad{color:var(--error)}
+  .btn-row{display:flex;gap:8px;margin-top:14px}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px}
+  .stat{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:9px 4px;text-align:center}
+  .stat .n{font-size:19px;font-weight:800;line-height:1}
+  .stat .l{font-size:10px;color:var(--muted);margin-top:4px}
+  .stat.err .n{color:var(--error)} .stat.warn .n{color:var(--warn)} .stat.ok .n{color:var(--ok)} .stat.dev .n{color:var(--accent)}
+
+  .check-item{display:flex;gap:9px;padding:10px;border-radius:8px;margin-bottom:8px;border:1px solid;font-size:12px;line-height:1.55}
+  .check-item[data-ids]{cursor:pointer}
+  .check-item[data-ids]:hover{filter:brightness(.96)}
+  @keyframes flashDev{0%,100%{box-shadow:var(--shadow)}50%{box-shadow:0 0 0 6px rgba(245,158,11,.6),var(--shadow)}}
+  .device.flash .device-body{animation:flashDev .7s ease-in-out 2}
+  .check-item .badge-ic{width:20px;height:20px;flex:0 0 20px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700}
+  .check-item b{display:block;font-size:12.5px;margin-bottom:2px}
+  .check-item.error{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+  .check-item.error .badge-ic{background:var(--error)}
+  .check-item.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+  .check-item.warn .badge-ic{background:var(--warn)}
+  .check-item.ok{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+  .check-item.ok .badge-ic{background:var(--ok)}
+  .check-item.info{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
+  .check-item.info .badge-ic{background:var(--accent)}
+
+  .link-status-item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;font-size:11.5px;margin-bottom:6px;border:1px solid;line-height:1.4}
+  .link-status-item.ok{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+  .link-status-item.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+  .link-status-item.error{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+  .link-status-item.idle{background:var(--panel-2);border-color:var(--line);color:var(--muted)}
+  .link-status-item .dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px;background:currentColor}
+  .link-status-item .ls-name{font-weight:700;white-space:nowrap}
+  .link-status-item .ls-msg{opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .ping-box{background:#0f172a;border-radius:9px;padding:12px;color:#a5f3d0;font-family:"SFMono-Regular",Consolas,monospace;font-size:11.5px;line-height:1.65;min-height:60px;white-space:pre-wrap;word-break:break-all;margin-top:10px}
+  .ping-box .ok{color:#6ee7b7} .ping-box .err{color:#fca5a5} .ping-box .dim{color:#94a3b8} .ping-box .hl{color:#fcd34d}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#1e293b;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);opacity:0;transition:.28s;z-index:100;pointer-events:none}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  .link-mode-banner{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--sel);color:#713f12;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;z-index:8;display:none;box-shadow:var(--shadow)}
+  .link-mode-banner.show{display:block}
+  .toast-btn{color:#93c5fd;cursor:pointer;margin-left:8px;text-decoration:underline}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:200;display:none;align-items:center;justify-content:center}
+  .modal{width:450px;max-width:94vw;max-height:86vh;background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden;animation:modalIn .2s ease-out}
+  @keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+  .modal-header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .modal-header h2{font-size:16px}
+  .modal-close{border:none;background:none;font-size:18px;color:var(--muted);cursor:pointer;padding:2px 6px;line-height:1}
+  .modal-close:hover{color:var(--text)}
+  .modal-body{padding:16px 18px;overflow-y:auto}
+  .modal-footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;background:var(--panel-2)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-logo">拓</div>
+    <div>
+      <h1>网络拓扑仿真模拟器</h1>
+      <div class="sub">Network Topology Simulator · 交换机 / 路由器 / 防火墙 接线与链路检测</div>
+      <div class="copyright">© 广东交通职业技术学院●课程资源开发团队●版权所有</div>
+    </div>
+  </div>
+  <div class="toolbar">
+    <button id="btnFullTest" class="primary" title="检测设备配置与链路状态">▶ 一键测试</button>
+    <button id="btnTraffic" title="演示数据包在网络中流动">🌊 流量演示</button>
+    <div class="tool-sep"></div>
+    <button id="btnDemo" title="加载一个可通的完整示例拓扑">📦 示例拓扑</button>
+    <button id="btnSave" title="导出为 JSON 文件">💾 保存</button>
+    <button id="btnLoad" title="从 JSON 文件加载">📂 加载</button>
+    <input type="file" id="fileInput" accept=".json" style="display:none">
+    <div class="tool-sep"></div>
+    <button id="btnDelete" class="danger" disabled title="删除选中的设备（Delete）">🗑 删除选中</button>
+    <button id="btnClear" class="danger" title="清空整个画布">🧹 清空</button>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧设备面板 -->
+  <aside class="left">
+    <div class="panel-title">🖧 设备库</div>
+    <div class="palette" id="palette"></div>
+
+    <div class="panel-title" style="margin-top:18px">🔗 链路类型</div>
+    <div class="link-types" id="linkTypes"></div>
+
+    <div class="hint">
+      <b>🛈 操作指引</b>
+      <div class="step"><span class="num">1</span><span>拖拽/点击设备添加到画布</span></div>
+      <div class="step"><span class="num">2</span><span>先选链路类型，再点两个端口接线</span></div>
+      <div class="step"><span class="num">3</span><span><b>双击设备</b>弹出配置框设置 IP</span></div>
+      <div class="step"><span class="num">4</span><span>点「一键测试」查看链路健康状态</span></div>
+      <div style="margin-top:7px;color:#b45309"><b>Esc</b> 取消接线 · <b>Delete</b> 删除选中</div>
+    </div>
+  </aside>
+
+  <!-- 中央画布 -->
+  <section class="center" id="center">
+    <div class="canvas-grid"></div>
+    <div class="canvas-badge">
+      <div class="badge">设备 <b id="statDev">0</b></div>
+      <div class="badge">链路 <b id="statLink">0</b></div>
+    </div>
+    <div class="legend">
+      <div><i style="border-top-color:#14b8a6"></i>双绞线</div>
+      <div><i style="border-top-color:#f59e0b"></i>光纤</div>
+      <div><i style="border-top-color:#8b6fd6;border-top-style:dashed"></i>无线</div>
+      <div><i style="border-top-color:#ef4444"></i>错误链路</div>
+    </div>
+    <div class="link-mode-banner" id="linkBanner">🔗 接线模式：请点击第二个端口（按 Esc 取消）</div>
+    <svg id="linkLayer"></svg>
+    <svg id="packetLayer"></svg>
+    <div id="nodeLayer"></div>
+    <div class="canvas-tip" id="canvasTip">提示：双击设备可弹出配置框；点两个端口即可接线</div>
+  </section>
+
+  <!-- 右侧面板 -->
+  <aside class="right">
+    <div class="tabs">
+      <div class="tab active" data-tab="config">⚙️ 设备配置</div>
+      <div class="tab" data-tab="check">🔍 测试与诊断</div>
+    </div>
+
+    <div class="tab-content active" id="tab-config">
+      <div id="configPanel">
+        <div class="empty-state">
+          <div class="big">🖱️</div>
+          请先<b>选中</b>或<b>双击</b>一个设备<br>即可配置名称、网关与接口 IP
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-check">
+      <div class="stat-grid">
+        <div class="stat dev"><div class="n" id="sDev">0</div><div class="l">设备</div></div>
+        <div class="stat dev"><div class="n" id="sLink">0</div><div class="l">链路</div></div>
+        <div class="stat err"><div class="n" id="sErr">0</div><div class="l">错误</div></div>
+        <div class="stat warn"><div class="n" id="sWarn">0</div><div class="l">警告</div></div>
+      </div>
+      <button class="primary" id="btnCheck" style="width:100%;justify-content:center">▶ 一键测试（配置 + 链路 + 连通性）</button>
+      <div id="checkResults" style="margin-top:14px">
+        <div class="empty-state" style="padding:24px 8px">
+          点击上方按钮，自动检查<b>配置错误 / IP 冲突 / 网段不匹配 / 交换环路</b>等问题
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top:18px">🔗 链路状态</div>
+      <div id="linkStatusPanel">
+        <div class="empty-state" style="padding:16px 8px">运行测试后，这里显示每条链路的健康状态</div>
+      </div>
+
+      <div class="section-label" style="margin-top:20px">📡 连通性测试 (Ping)</div>
+      <div class="field"><label>源设备</label><select id="pingSrc"></select></div>
+      <div class="field"><label>目标设备</label><select id="pingDst"></select></div>
+      <div class="field"><label>目标 IP（可留空，默认取目标设备接口 IP）</label><input id="pingIp" placeholder="例如 192.168.2.10"></div>
+      <button class="ok" id="btnPing" style="width:100%;justify-content:center">📤 发送 Ping 测试</button>
+      <div class="ping-box" id="pingBox">// 测试结果将显示在这里</div>
+    </div>
+  </aside>
+</main>
+
+<!-- 设备配置模态框 -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">设备配置</h2>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="danger" id="modalDelete">🗑 删除设备</button>
+      <button class="primary" id="modalSave">✓ 保存配置</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   网络拓扑仿真模拟器 —— 核心逻辑
+   单文件 / 无外部依赖 / 离线可运行
+   ============================================================ */
+
+/* ---------- 教学语义化配置 ---------- */
+const DEVICE_TYPES = {
+  router:   {label:'路由器',   en:'Router',   color:'#ff6b5b', ports:3, names:['GE0/0/0','GE0/0/1','GE0/0/2'], l3:true},
+  switch:   {label:'交换机',   en:'Switch',   color:'#14b8a6', ports:4, names:['GE0/0/1','GE0/0/2','GE0/0/3','GE0/0/4'], l3:false},
+  firewall: {label:'防火墙',   en:'Firewall', color:'#f0893a', ports:3, names:['GE0/0/0','GE0/0/1','GE0/0/2'], l3:true},
+  pc:       {label:'PC 主机',  en:'PC',       color:'#4d8bd6', ports:1, names:['Eth0/0/1'], l3:false, host:true},
+  server:   {label:'服务器',   en:'Server',   color:'#8b6fd6', ports:1, names:['Eth0/0/1'], l3:false, host:true},
+  cloud:    {label:'云 / 外网', en:'Cloud',    color:'#94a3b8', ports:1, names:['Cloud1'], l3:false}
+};
+const LINK_TYPES = {
+  copper:   {label:'双绞线',   en:'Copper / UTP', color:'#14b8a6', dash:''},
+  fiber:    {label:'光纤',     en:'Fiber',        color:'#f59e0b', dash:''},
+  wireless: {label:'无线',     en:'Wireless',     color:'#8b6fd6', dash:'7 5'}
+};
+
+/* 设备 SVG 图标 */
+function deviceSVG(type){
+  const c = DEVICE_TYPES[type].color;
+  const icons = {
+    router: `<svg viewBox="0 0 40 32"><rect x="3" y="10" width="34" height="16" rx="4" fill="${c}"/><circle cx="12" cy="18" r="4" fill="#fff" opacity=".9"/><circle cx="28" cy="18" r="4" fill="#fff" opacity=".9"/><path d="M20 4v8m0 12v4M16 8l4-4 4 4" stroke="${c}" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`,
+    switch: `<svg viewBox="0 0 40 32"><rect x="3" y="8" width="34" height="18" rx="4" fill="${c}"/><g fill="#fff"><rect x="8" y="13" width="4" height="4" rx="1"/><rect x="16" y="13" width="4" height="4" rx="1"/><rect x="24" y="13" width="4" height="4" rx="1"/><rect x="8" y="20" width="4" height="3" rx="1" opacity=".7"/><rect x="16" y="20" width="4" height="3" rx="1" opacity=".7"/><rect x="24" y="20" width="4" height="3" rx="1" opacity=".7"/></g></svg>`,
+    firewall: `<svg viewBox="0 0 40 32"><path d="M20 3l14 5v8c0 8-6 12-14 14C12 28 6 24 6 16V8z" fill="${c}"/><g stroke="#fff" stroke-width="1.4" opacity=".9"><path d="M9 13h22M9 19h22M16 8v16M25 8v16"/></g></svg>`,
+    pc: `<svg viewBox="0 0 40 32"><rect x="5" y="4" width="30" height="19" rx="2.5" fill="${c}"/><rect x="8" y="7" width="24" height="13" rx="1" fill="#fff" opacity=".85"/><path d="M14 27h12M20 23v4" stroke="${c}" stroke-width="2.5" stroke-linecap="round"/></svg>`,
+    server: `<svg viewBox="0 0 40 32"><rect x="6" y="3" width="28" height="11" rx="2.5" fill="${c}"/><rect x="6" y="17" width="28" height="11" rx="2.5" fill="${c}"/><circle cx="11" cy="8.5" r="1.8" fill="#fff"/><circle cx="11" cy="22.5" r="1.8" fill="#fff"/><g stroke="#fff" stroke-width="1.6" opacity=".8"><path d="M17 8.5h12M17 22.5h12"/></g></svg>`,
+    cloud: `<svg viewBox="0 0 40 32"><path d="M11 25a7 7 0 01-1-13.9A10 10 0 0129 12a6.5 6.5 0 011 13z" fill="${c}"/><circle cx="20" cy="18" r="3" fill="#fff" opacity=".9"/></svg>`
+  };
+  return icons[type] || '';
+}
+
+/* ---------- 全局状态 ---------- */
+let devices = [];   // {id,type,name,x,y,interfaces:[{ip,mask}],gateway}
+let links = [];     // {id,a:{dev,port},b:{dev,port},type:'copper|fiber|wireless'}
+let selectedId = null;
+let linkStart = null;
+let selectedLinkType = 'copper';
+let linkStatus = {};  // linkId -> {level:'ok|warn|error', msg}
+let idSeq = 1;
+let dragState = null;
+let scale = 1;
+let modalDeviceId = null;
+let animState = { running:false, rafId:null, packets:[], startTime:0 };
+
+const center = document.getElementById('center');
+const nodeLayer = document.getElementById('nodeLayer');
+const linkLayer = document.getElementById('linkLayer');
+const packetLayer = document.getElementById('packetLayer');
+const DEVICE_W = 104, PORT_ROW_Y = 70, PORT_GAP = 18;
+
+/* ---------- 工具函数 ---------- */
+const uid = (p) => p + (idSeq++) + '_' + Math.random().toString(36).slice(2,6);
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function defaultName(type){
+  const prefix = {router:'R',switch:'SW',firewall:'FW',pc:'PC',server:'Srv',cloud:'Cloud'}[type];
+  const n = devices.filter(d=>d.type===type).length + 1;
+  return prefix + n;
+}
+function newDevice(type,x,y){
+  const t = DEVICE_TYPES[type];
+  return {
+    id: uid('d'), type, name: defaultName(type),
+    x: Math.max(4,x), y: Math.max(4,y),
+    interfaces: Array.from({length:t.ports},()=>({ip:'',mask:'255.255.255.0'})),
+    gateway: ''
+  };
+}
+function getDev(id){ return devices.find(d=>d.id===id); }
+function portOffset(dev, port){
+  const n = DEVICE_TYPES[dev.type].ports;
+  const totalW = (n-1)*PORT_GAP;
+  return { x: DEVICE_W/2 - totalW/2 + port*PORT_GAP, y: PORT_ROW_Y + 5 };
+}
+function portAbs(dev, port){
+  const o = portOffset(dev,port);
+  return { x: dev.x + o.x, y: dev.y + o.y };
+}
+function ipToInt(ip){
+  if(!ip) return null;
+  const p = ip.split('.').map(Number);
+  if(p.length!==4 || p.some(n=>isNaN(n)||n<0||n>255)) return null;
+  return ((p[0]<<24)>>>0) + (p[1]<<16) + (p[2]<<8) + p[3];
+}
+function maskToPrefix(mask){
+  const v = ipToInt(mask);
+  if(v===null) return null;
+  let n=0, x=v>>>0;
+  while(x & 0x80000000){ n++; x=(x<<1)>>>0; }
+  return n;
+}
+function networkOf(ip, mask){
+  const i = ipToInt(ip), m = ipToInt(mask);
+  if(i===null||m===null) return null;
+  return (i & m)>>>0;
+}
+function fmtNet(ip, mask){
+  const n = networkOf(ip,mask), p = maskToPrefix(mask);
+  if(n===null||p===null) return '?';
+  const a=(n>>>24)&255,b=(n>>>16)&255,c=(n>>>8)&255,d=n&255;
+  return `${a}.${b}.${c}.${d}/${p}`;
+}
+function prefixToMask(p){
+  if(p===0) return '0.0.0.0';
+  const v = (0xFFFFFFFF << (32-p))>>>0;
+  return [(v>>>24)&255,(v>>>16)&255,(v>>>8)&255,v&255].join('.');
+}
+
+/* ---------- 渲染 ---------- */
+function renderPalette(){
+  const pal = document.getElementById('palette');
+  pal.innerHTML = Object.entries(DEVICE_TYPES).map(([key,t])=>`
+    <div class="palette-item" draggable="true" data-type="${key}">
+      <div class="ic" style="background:${t.color}">${deviceSVG(key)}</div>
+      <div class="meta"><b>${t.label}</b><small>${t.en} · ${t.ports}口</small></div>
+    </div>`).join('');
+  pal.querySelectorAll('.palette-item').forEach(el=>{
+    el.addEventListener('dragstart',e=>{
+      e.dataTransfer.setData('text/device-type', el.dataset.type);
+      e.dataTransfer.effectAllowed='copy';
+    });
+    el.addEventListener('click',()=>{
+      const rect = center.getBoundingClientRect();
+      addDevice(el.dataset.type, rect.width/2 - 52 + (Math.random()*60-30), rect.height/2 - 40 + (Math.random()*60-30));
+    });
+  });
+}
+function renderLinkTypes(){
+  const box = document.getElementById('linkTypes');
+  box.innerHTML = Object.entries(LINK_TYPES).map(([k,t])=>`
+    <div class="link-type-item ${selectedLinkType===k?'active':''}" data-type="${k}">
+      <span class="sample" style="border-top-color:${t.color};border-top-style:${t.dash?'dashed':'solid'}"></span>
+      <span class="lt-meta"><b>${t.label}</b><small>${t.en}</small></span>
+    </div>`).join('');
+  box.querySelectorAll('.link-type-item').forEach(el=>{
+    el.addEventListener('click',()=>{
+      selectedLinkType = el.dataset.type;
+      renderLinkTypes();
+      toast(`当前链路类型：<b style="color:${LINK_TYPES[selectedLinkType].color}">${LINK_TYPES[selectedLinkType].label}</b>`);
+    });
+  });
+}
+function addDevice(type, x, y){
+  const d = newDevice(type,x,y);
+  devices.push(d);
+  selectDevice(d.id);
+  render();
+  toast(`已添加 <b style="color:${DEVICE_TYPES[type].color}">${d.name}</b>（双击可配置）`);
+}
+function render(){
+  renderNodes();
+  renderLinks();
+  document.getElementById('statDev').textContent = devices.length;
+  document.getElementById('statLink').textContent = links.length;
+  updatePingSelects();
+}
+function renderNodes(){
+  nodeLayer.innerHTML = devices.map(d=>{
+    const t = DEVICE_TYPES[d.type];
+    const ports = Array.from({length:t.ports},(_,i)=>{
+      const linked = links.some(l=>(l.a.dev===d.id&&l.a.port===i)||(l.b.dev===d.id&&l.b.port===i));
+      const isStart = linkStart && linkStart.dev===d.id && linkStart.port===i;
+      const hasIp = d.interfaces[i] && d.interfaces[i].ip;
+      return `<div class="port ${linked?'linked':''} ${isStart?'link-start':''} ${hasIp?'has-ip':''}" data-dev="${d.id}" data-port="${i}" title="${t.names[i]}${hasIp?' · '+d.interfaces[i].ip:''}"></div>`;
+    }).join('');
+    return `<div class="device ${selectedId===d.id?'selected':''}" data-id="${d.id}" style="left:${d.x}px;top:${d.y}px">
+      <div class="device-body">
+        <div class="device-icon">${deviceSVG(d.type)}</div>
+        <div class="device-name">${escapeHtml(d.name)}</div>
+        <div class="device-type">${t.label}</div>
+      </div>
+      <div class="ports">${ports}</div>
+    </div>`;
+  }).join('');
+
+  nodeLayer.querySelectorAll('.device').forEach(el=>{
+    const id = el.dataset.id;
+    el.addEventListener('mousedown', e=>{
+      if(e.target.classList.contains('port')) return;
+      selectDevice(id);
+      startDrag(e, id, el);
+    });
+    el.addEventListener('dblclick', e=>{
+      if(e.target.classList.contains('port')) return;
+      e.stopPropagation();
+      openConfigModal(id);
+    });
+  });
+  nodeLayer.querySelectorAll('.port').forEach(el=>{
+    el.addEventListener('mousedown', e=>e.stopPropagation());
+    el.addEventListener('click', e=>{
+      e.stopPropagation();
+      handlePortClick(el.dataset.dev, parseInt(el.dataset.port));
+    });
+  });
+}
+
+/* 贝塞尔曲线上的点（用于数据包动画与错误标记定位） */
+function bezierPoint(p0,p1,p2,p3,t){
+  const mt=1-t;
+  return {
+    x: mt*mt*mt*p0.x + 3*mt*mt*t*p1.x + 3*mt*t*t*p2.x + t*t*t*p3.x,
+    y: mt*mt*mt*p0.y + 3*mt*mt*t*p1.y + 3*mt*t*t*p2.y + t*t*t*p3.y
+  };
+}
+function linkCurve(l){
+  const A=getDev(l.a.dev), B=getDev(l.b.dev);
+  if(!A||!B) return null;
+  const pa=portAbs(A,l.a.port), pb=portAbs(B,l.b.port);
+  const midY=Math.max(pa.y,pb.y)+46;
+  return { p0:pa, p1:{x:pa.x,y:midY}, p2:{x:pb.x,y:midY}, p3:pb };
+}
+
+function renderLinks(){
+  let html = '';
+  links.forEach(l=>{
+    const A = getDev(l.a.dev), B = getDev(l.b.dev);
+    if(!A||!B) return;
+    const c = linkCurve(l);
+    const {p0:pa,p3:pb} = c;
+    const d = `M ${pa.x} ${pa.y} C ${c.p1.x} ${c.p1.y}, ${c.p2.x} ${c.p2.y}, ${pb.x} ${pb.y}`;
+    const lt = LINK_TYPES[l.type||'copper'];
+    const st = linkStatus[l.id];
+    const color = st ? (st.level==='error'?'#ef4444':st.level==='warn'?'#f59e0b':lt.color) : lt.color;
+    const dash = st && st.level==='error' ? '8 5' : lt.dash;
+    html += `<path d="${d}" fill="none" stroke="${color}" stroke-width="${st&&st.level==='error'?3.5:3}" stroke-linecap="round" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
+    html += `<path class="link-hit" data-id="${l.id}" d="${d}" fill="none" stroke="transparent" stroke-width="14"/>`;
+    html += `<circle cx="${pa.x}" cy="${pa.y}" r="3.5" fill="${color}"/><circle cx="${pb.x}" cy="${pb.y}" r="3.5" fill="${color}"/>`;
+    // 状态标记（错误/警告）脉冲动画
+    if(st && st.level!=='ok'){
+      const mid = bezierPoint(c.p0,c.p1,c.p2,c.p3,0.5);
+      const icon = st.level==='error' ? '⚠' : '!';
+      html += `<g class="status-marker"><circle cx="${mid.x}" cy="${mid.y}" r="10" fill="#fff" stroke="${color}" stroke-width="2"/><text x="${mid.x}" y="${mid.y+1}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="central">${icon}</text></g>`;
+    }
+  });
+  linkLayer.innerHTML = html;
+  linkLayer.querySelectorAll('.link-hit').forEach(p=>{
+    p.addEventListener('click',e=>{
+      e.stopPropagation();
+      const id = p.dataset.id;
+      toast('已选中链路 · <span class="toast-btn" id="delLinkBtn">删除此链路</span>');
+      const btn = document.getElementById('delLinkBtn');
+      if(btn) btn.onclick = ()=>{ links = links.filter(l=>l.id!==id); delete linkStatus[id]; selectedId=null; render(); refreshPacketCurves(); renderConfig(); toast('链路已删除'); };
+    });
+  });
+}
+
+/* ---------- 选中与拖动 ---------- */
+function selectDevice(id, switchToConfig=true){
+  selectedId = id;
+  nodeLayer.querySelectorAll('.device').forEach(el=>el.classList.toggle('selected', el.dataset.id===id));
+  document.getElementById('btnDelete').disabled = !id;
+  renderConfig();
+  if(switchToConfig) switchTab('config');
+}
+function startDrag(e, id, el){
+  const d = getDev(id);
+  dragState = { id, el, startX:e.clientX, startY:e.clientY, origX:d.x, origY:d.y };
+  el.classList.add('dragging');
+  const onMove = (ev)=>{
+    if(!dragState) return;
+    d.x = Math.max(0, dragState.origX + (ev.clientX - dragState.startX)/scale);
+    d.y = Math.max(0, dragState.origY + (ev.clientY - dragState.startY)/scale);
+    el.style.left = d.x+'px';
+    el.style.top = d.y+'px';
+    renderLinks();
+    refreshPacketCurves();
+  };
+  const onUp = ()=>{
+    if(dragState) dragState.el.classList.remove('dragging');
+    dragState = null;
+    window.removeEventListener('mousemove',onMove);
+    window.removeEventListener('mouseup',onUp);
+  };
+  window.addEventListener('mousemove',onMove);
+  window.addEventListener('mouseup',onUp);
+}
+
+/* ---------- 端口接线 ---------- */
+function handlePortClick(devId, port){
+  if(!linkStart){
+    linkStart = {dev:devId, port};
+    document.getElementById('linkBanner').classList.add('show');
+    document.getElementById('canvasTip').textContent = `当前链路：${LINK_TYPES[selectedLinkType].label} · 再点击另一个设备的端口…`;
+    renderNodes();
+    return;
+  }
+  if(linkStart.dev===devId && linkStart.port===port){ cancelLink(); return; }
+  const exists = links.some(l=>
+    (l.a.dev===linkStart.dev&&l.a.port===linkStart.port&&l.b.dev===devId&&l.b.port===port)||
+    (l.b.dev===linkStart.dev&&l.b.port===linkStart.port&&l.a.dev===devId&&l.a.port===port));
+  if(exists){ toast('这两个端口已经连接过了'); cancelLink(); return; }
+  links.push({ id: uid('l'), a:{...linkStart}, b:{dev:devId,port}, type:selectedLinkType });
+  cancelLink();
+  render();
+  toast(`🔗 ${LINK_TYPES[selectedLinkType].label}链路已建立`);
+}
+function cancelLink(){
+  linkStart = null;
+  document.getElementById('linkBanner').classList.remove('show');
+  document.getElementById('canvasTip').textContent = '提示：双击设备可弹出配置框；点两个端口即可接线';
+  renderNodes();
+}
+
+/* ---------- 配置表单（右侧面板 + 模态框共用） ---------- */
+function configFormHTML(d){
+  const t = DEVICE_TYPES[d.type];
+  const itfCards = d.interfaces.map((itf,i)=>`
+    <div class="itf-card">
+      <div class="itf-title"><span>${t.names[i]}</span><span class="tag">${i===0?'主接口':'接口 '+(i+1)}</span></div>
+      <div class="itf-row">
+        <div class="field ip"><input class="mini-input cfg-ip" data-i="${i}" value="${escapeHtml(itf.ip)}" placeholder="IP 地址"></div>
+        <div class="field"><input class="mini-input cfg-mask" data-i="${i}" value="${escapeHtml(itf.mask)}" placeholder="掩码"></div>
+      </div>
+      <div class="itf-status ${itf.ip?(ipToInt(itf.ip)?'up':'bad'):''}">${itf.ip?(ipToInt(itf.ip)?'● 已配置 '+fmtNet(itf.ip,itf.mask):'✗ IP 格式无效'):'○ 未配置 IP'}</div>
+    </div>`).join('');
+  return `
+    <div class="dev-head">
+      <div class="ic" style="background:${t.color}">${deviceSVG(d.type)}</div>
+      <div><b>${t.label}</b><br><small>${t.en} · ${t.ports} 个接口 · ${t.l3?'三层设备':'二层/终端设备'}</small></div>
+    </div>
+    <div class="field"><label>设备名称</label><input class="cfg-name" value="${escapeHtml(d.name)}"></div>
+    ${t.host?`<div class="field"><label>默认网关（Gateway）</label><input class="cfg-gw" value="${escapeHtml(d.gateway)}" placeholder="例如 192.168.1.1"></div>`:''}
+    <div class="section-label">🔌 接口 IP 配置</div>
+    ${itfCards}
+    <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.6">
+      💡 两台直连设备的接口 IP 需在<b>同一网段</b>才能二层互通；跨网段需经路由器/防火墙转发。
+    </div>`;
+}
+function bindConfigForm(root, d){
+  const nameInput = root.querySelector('.cfg-name');
+  if(nameInput) nameInput.addEventListener('input',e=>{ d.name = e.target.value; renderNodes(); });
+  const gwInput = root.querySelector('.cfg-gw');
+  if(gwInput) gwInput.addEventListener('input',e=>{ d.gateway = e.target.value; });
+  root.querySelectorAll('.cfg-ip').forEach(inp=>inp.addEventListener('input',e=>{ d.interfaces[+e.target.dataset.i].ip = e.target.value.trim(); }));
+  root.querySelectorAll('.cfg-mask').forEach(inp=>inp.addEventListener('input',e=>{ d.interfaces[+e.target.dataset.i].mask = e.target.value.trim(); }));
+}
+function renderConfig(){
+  const panel = document.getElementById('configPanel');
+  const d = getDev(selectedId);
+  if(!d){
+    panel.innerHTML = `<div class="empty-state"><div class="big">🖱️</div>请先<b>选中</b>或<b>双击</b>一个设备<br>即可配置名称、网关与接口 IP</div>`;
+    return;
+  }
+  panel.innerHTML = configFormHTML(d) + `
+    <div class="btn-row">
+      <button class="primary" id="applyCfg" style="flex:1;justify-content:center">✓ 应用配置</button>
+      <button class="danger" id="delDev">删除</button>
+    </div>`;
+  bindConfigForm(panel, d);
+  document.getElementById('applyCfg').addEventListener('click',()=>{ renderNodes(); toast('配置已应用'); });
+  document.getElementById('delDev').addEventListener('click',()=>deleteSelected());
+}
+function openConfigModal(id){
+  const d = getDev(id); if(!d) return;
+  modalDeviceId = id;
+  document.getElementById('modalTitle').textContent = `⚙️ 配置 ${d.name} · ${DEVICE_TYPES[d.type].label}`;
+  const body = document.getElementById('modalBody');
+  body.innerHTML = configFormHTML(d);
+  bindConfigForm(body, d);
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+function closeConfigModal(){
+  document.getElementById('modalOverlay').style.display = 'none';
+  modalDeviceId = null;
+}
+document.getElementById('modalClose').addEventListener('click',closeConfigModal);
+document.getElementById('modalOverlay').addEventListener('mousedown',e=>{ if(e.target.id==='modalOverlay') closeConfigModal(); });
+document.getElementById('modalSave').addEventListener('click',()=>{ renderNodes(); renderConfig(); closeConfigModal(); toast('配置已保存'); });
+document.getElementById('modalDelete').addEventListener('click',()=>{ const id=modalDeviceId; closeConfigModal(); selectedId=id; deleteSelected(); });
+
+function deleteSelected(){
+  if(!selectedId) return;
+  devices = devices.filter(d=>d.id!==selectedId);
+  links = links.filter(l=>l.a.dev!==selectedId && l.b.dev!==selectedId);
+  if(linkStart && linkStart.dev===selectedId) cancelLink();
+  selectedId = null;
+  document.getElementById('btnDelete').disabled = true;
+  render(); refreshPacketCurves(); renderConfig();
+  toast('设备已删除');
+}
+
+/* ---------- Tab 切换 ---------- */
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  document.getElementById('tab-config').classList.toggle('active',name==='config');
+  document.getElementById('tab-check').classList.toggle('active',name==='check');
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
+
+/* ---------- 拓扑校验（核心算法） ---------- */
+function runValidation(){
+  const issues = [];
+  const add = (level,title,detail,ids=[]) => issues.push({level,title,detail,ids});
+  if(devices.length===0){ add('info','拓扑为空','请先从左侧设备库添加设备并连线。'); return issues; }
+
+  devices.forEach(d=>{
+    const deg = links.filter(l=>l.a.dev===d.id||l.b.dev===d.id).length;
+    if(deg===0) add('warn',`${d.name} 未连接任何链路`,'该设备是孤立的，无法参与通信。请将它与其他设备接线。',[d.id]);
+  });
+  const names = {};
+  devices.forEach(d=>{ names[d.name]=(names[d.name]||0)+1; });
+  Object.entries(names).filter(([,n])=>n>1).forEach(([nm])=> add('warn',`设备名重复：「${nm}」`,'存在多个同名设备，建议重命名以便区分。'));
+  devices.forEach(d=>{
+    const t = DEVICE_TYPES[d.type];
+    if((t.host||t.l3) && !d.interfaces.some(i=>i.ip)) add('warn',`${d.name} 未配置接口 IP`,'该设备需要配置 IP 地址才能进行网络通信。',[d.id]);
+  });
+  const ipMap = {};
+  devices.forEach(d=>d.interfaces.forEach((itf,i)=>{
+    if(!itf.ip) return;
+    if(ipToInt(itf.ip)===null){ add('error',`${d.name} 的 IP 格式无效`,`接口 ${DEVICE_TYPES[d.type].names[i]} 的 IP「${itf.ip}」不合法。`,[d.id]); return; }
+    (ipMap[itf.ip]=ipMap[itf.ip]||[]).push(`${d.name}/${DEVICE_TYPES[d.type].names[i]}`);
+  }));
+  Object.entries(ipMap).filter(([,v])=>v.length>1).forEach(([ip,v])=> add('error',`IP 地址冲突：${ip}`,`以下接口使用了相同 IP：${v.join('、')}。`,[]));
+
+  links.forEach(l=>{
+    const A=getDev(l.a.dev), B=getDev(l.b.dev);
+    if(!A||!B) return;
+    const ia=A.interfaces[l.a.port], ib=B.interfaces[l.b.port];
+    if(ia && ib && ia.ip && ib.ip){
+      const na=networkOf(ia.ip,ia.mask), nb=networkOf(ib.ip,ib.mask);
+      if(na!==nb) add('error',`${A.name} ⇄ ${B.name} 网段不匹配`,`${A.name}(${fmtNet(ia.ip,ia.mask)}) 与 ${B.name}(${fmtNet(ib.ip,ib.mask)}) 直连接口不在同一网段，二层无法互通。`,[A.id,B.id]);
+      else add('ok',`${A.name} ⇄ ${B.name} 网段一致`,`两端同属 ${fmtNet(ia.ip,ia.mask)}，二层链路正常。`,[A.id,B.id]);
+    }
+  });
+
+  devices.filter(d=>DEVICE_TYPES[d.type].host).forEach(d=>{
+    if(d.interfaces.some(i=>i.ip) && !d.gateway) add('warn',`${d.name} 未配置默认网关`,'跨网段通信需要配置网关IP（指向直连的路由器/防火墙接口）。',[d.id]);
+    else if(d.gateway){
+      const gwExists = devices.some(x=>DEVICE_TYPES[x.type].l3 && x.interfaces.some(i=>i.ip===d.gateway));
+      if(!gwExists) add('warn',`${d.name} 的网关地址可能无效`,`网关 ${d.gateway} 未对应任何三层设备接口，请核对。`,[d.id]);
+    }
+  });
+
+  const l2types = ['switch','pc','server','cloud'];
+  const adj = {};
+  devices.forEach(d=>adj[d.id]=[]);
+  links.forEach(l=>{
+    const A=getDev(l.a.dev), B=getDev(l.b.dev);
+    if(A&&B&&l2types.includes(A.type)&&l2types.includes(B.type)){ adj[A.id].push(B.id); adj[B.id].push(A.id); }
+  });
+  const visited={}, inStack={}, foundEdges=new Set();
+  function dfs(u,parent){
+    visited[u]=true; inStack[u]=true;
+    for(const v of adj[u]){
+      if(!visited[v]) dfs(v,u);
+      else if(inStack[v] && v!==parent){ foundEdges.add([u,v].sort().join('|')); }
+    }
+    inStack[u]=false;
+  }
+  devices.forEach(d=>{ if(!visited[d.id]) dfs(d.id,null); });
+  if(foundEdges.size>0){
+    const nameOf = id=>getDev(id).name;
+    const desc = [...foundEdges].map(e=>e.split('|').map(nameOf).join(' ⇄ ')).join('；');
+    add('error','检测到二层环路（广播风暴风险）',`交换网络中存在环路：${desc}。生成树协议（STP）阻塞前，环路会导致广播帧无限循环。`, []);
+  }
+
+  devices.filter(d=>DEVICE_TYPES[d.type].l3).forEach(d=>{
+    const valid = d.interfaces.filter(i=>i.ip && ipToInt(i.ip)!==null).length;
+    if(valid<2) add('warn',`${d.name} 路由接口偏少`,'三层设备至少需要 2 个不同网段的接口才能承担跨网段转发。',[d.id]);
+  });
+
+  if(devices.length>1 && links.length>0){
+    const seen=new Set(), adjGlobal={}; let comps=0;
+    devices.forEach(d=>adjGlobal[d.id]=[]);
+    links.forEach(l=>{ if(adjGlobal[l.a.dev]&&adjGlobal[l.b.dev]){ adjGlobal[l.a.dev].push(l.b.dev); adjGlobal[l.b.dev].push(l.a.dev);} });
+    function walk(id){ seen.add(id); adjGlobal[id].forEach(v=>{ if(!seen.has(v)) walk(v); }); }
+    devices.forEach(d=>{ if(!seen.has(d.id)){ comps++; walk(d.id);} });
+    if(comps>1) add('warn',`拓扑被分为 ${comps} 个独立区域`,'存在互不相连的设备组，请检查是否遗漏了链路。');
+  }
+  return issues;
+}
+
+/* ---------- 一键测试：配置 + 链路状态 + 可视化 ---------- */
+function runFullTest(){
+  if(!devices.length){ toast('请先添加设备'); return; }
+  const issues = runValidation();
+
+  // 逐条链路诊断
+  linkStatus = {};
+  links.forEach(l=>{
+    const A=getDev(l.a.dev), B=getDev(l.b.dev);
+    if(!A||!B) return;
+    const ia=A.interfaces[l.a.port], ib=B.interfaces[l.b.port];
+    if(!ia.ip || !ib.ip){ linkStatus[l.id]={level:'warn',msg:'一端或两端接口未配置 IP'}; return; }
+    if(ipToInt(ia.ip)===null || ipToInt(ib.ip)===null){ linkStatus[l.id]={level:'error',msg:'IP 地址格式错误'}; return; }
+    const na=networkOf(ia.ip,ia.mask), nb=networkOf(ib.ip,ib.mask);
+    if(na!==nb){ linkStatus[l.id]={level:'error',msg:`网段不匹配 ${fmtNet(ia.ip,ia.mask)} ⇄ ${fmtNet(ib.ip,ib.mask)}`}; return; }
+    const lt=LINK_TYPES[l.type||'copper'];
+    linkStatus[l.id]={level:'ok',msg:`${lt.label}正常 · 同网段 ${fmtNet(ia.ip,ia.mask)}`};
+  });
+
+  renderLinks();
+  renderLinkStatusPanel();
+  renderCheckResults(issues);
+  switchTab('check');
+  if(animState.running) rebuildPackets();
+
+  const errN = issues.filter(i=>i.level==='error').length + Object.values(linkStatus).filter(s=>s.level==='error').length;
+  const warnN = issues.filter(i=>i.level==='warn').length + Object.values(linkStatus).filter(s=>s.level==='warn').length;
+  toast(`✅ 测试完成：<b style="color:#ef4444">${errN} 处错误</b>，<b style="color:#f59e0b">${warnN} 处警告</b>`);
+}
+
+function renderLinkStatusPanel(){
+  const box = document.getElementById('linkStatusPanel');
+  if(!links.length){ box.innerHTML='<div class="empty-state" style="padding:16px 8px">暂无链路</div>'; return; }
+  box.innerHTML = links.map(l=>{
+    const A=getDev(l.a.dev), B=getDev(l.b.dev);
+    const st=linkStatus[l.id];
+    const nm = `${A?A.name:'?'} ⇄ ${B?B.name:'?'}`;
+    if(!st) return `<div class="link-status-item idle"><span class="dot"></span><span class="ls-name">${nm}</span><span class="ls-msg">未测试</span></div>`;
+    return `<div class="link-status-item ${st.level}"><span class="dot"></span><span class="ls-name">${nm}</span><span class="ls-msg" title="${escapeHtml(st.msg)}">${escapeHtml(st.msg)}</span></div>`;
+  }).join('');
+}
+function renderCheckResults(issues){
+  issues = issues || runValidation();
+  const box = document.getElementById('checkResults');
+  const errN = issues.filter(i=>i.level==='error').length;
+  const warnN = issues.filter(i=>i.level==='warn').length;
+  document.getElementById('sDev').textContent = devices.length;
+  document.getElementById('sLink').textContent = links.length;
+  document.getElementById('sErr').textContent = errN;
+  document.getElementById('sWarn').textContent = warnN;
+  const ic = {error:'!',warn:'!',ok:'✓',info:'i'};
+  let html = issues.map(i=>`
+    <div class="check-item ${i.level}" ${i.ids&&i.ids.length?`data-ids="${i.ids.join(',')}"`:''} title="${i.ids&&i.ids.length?'点击定位相关设备':''}">
+      <div class="badge-ic">${ic[i.level]}</div>
+      <div><b>${escapeHtml(i.title)}</b>${escapeHtml(i.detail)}</div>
+    </div>`).join('');
+  if(errN===0 && warnN===0 && !issues.some(i=>i.level==='info'))
+    html = `<div class="check-item ok"><div class="badge-ic">✓</div><div><b>配置与拓扑检查通过！</b>未发现配置错误、IP 冲突、网段不匹配或环路问题。</div></div>`;
+  box.innerHTML = html;
+  box.querySelectorAll('[data-ids]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const ids = el.dataset.ids.split(',');
+      ids.forEach(id=>{
+        const node = nodeLayer.querySelector(`.device[data-id="${id}"]`);
+        if(node){ node.classList.add('flash'); setTimeout(()=>node.classList.remove('flash'),1500); }
+      });
+      if(ids[0]) selectDevice(ids[0], false);
+    });
+  });
+}
+
+/* ---------- Ping 连通性测试（网段图模型） ---------- */
+function updatePingSelects(){
+  const s1=document.getElementById('pingSrc'), s2=document.getElementById('pingDst');
+  const opts = devices.map(d=>`<option value="${d.id}">${escapeHtml(d.name)} (${DEVICE_TYPES[d.type].label})</option>`).join('');
+  const old1=s1.value, old2=s2.value;
+  s1.innerHTML = opts || '<option value="">（无设备）</option>';
+  s2.innerHTML = opts || '<option value="">（无设备）</option>';
+  if(devices.some(d=>d.id===old1)) s1.value=old1;
+  if(devices.some(d=>d.id===old2)) s2.value=old2;
+  else if(devices.length>1) s2.selectedIndex=1;
+}
+function runPing(){
+  const box = document.getElementById('pingBox');
+  const src = getDev(document.getElementById('pingSrc').value);
+  const dst = getDev(document.getElementById('pingDst').value);
+  const ipInput = document.getElementById('pingIp').value.trim();
+  if(!src||!dst){ box.innerHTML='<span class="err">✗ 请先添加并选择源设备与目标设备</span>'; return; }
+  const srcIp = src.interfaces.find(i=>i.ip)?.ip;
+  const dstIp = ipInput || dst.interfaces.find(i=>i.ip)?.ip;
+  if(!srcIp){ box.innerHTML=`<span class="err">✗ ${src.name} 未配置 IP 地址，无法发起 Ping</span>`; return; }
+  if(!dstIp || ipToInt(dstIp)===null){ box.innerHTML=`<span class="err">✗ 目标 IP 无效或未配置</span>`; return; }
+
+  let out = `PING ${dstIp} from ${src.name} (${srcIp}):\n`;
+  const line=(t)=>out+=t+'\n';
+
+  // 链路健康检查：如果相关链路错误，直接提示
+  const badLinks = links.filter(l=>linkStatus[l.id] && linkStatus[l.id].level==='error');
+  if(badLinks.length){
+    line(`<span class="err">✗ 检测到 ${badLinks.length} 条故障链路，建议先运行「一键测试」：</span>`);
+    badLinks.forEach(l=>{
+      const A=getDev(l.a.dev),B=getDev(l.b.dev);
+      line(`  <span class="err">· ${A.name} ⇄ ${B.name}: ${linkStatus[l.id].msg}</span>`);
+    });
+    box.innerHTML=out; return;
+  }
+
+  const srcNet = networkOf(srcIp, src.interfaces.find(i=>i.ip).mask);
+  const srcPrefix = maskToPrefix(src.interfaces.find(i=>i.ip).mask);
+  const segs = {};
+  devices.forEach(d=>d.interfaces.forEach(itf=>{
+    if(!itf.ip||ipToInt(itf.ip)===null) return;
+    const net=networkOf(itf.ip,itf.mask), pre=maskToPrefix(itf.mask);
+    if(net===null||pre===null) return;
+    const k=net+'|'+pre;
+    (segs[k]=segs[k]||{net,pre,ends:[]}).ends.push({dev:d.id,ip:itf.ip});
+  }));
+  const segKeys = Object.keys(segs);
+  let dstSegKey=null, best=-1;
+  segKeys.forEach(k=>{
+    const s=segs[k];
+    if(networkOf(dstIp, prefixToMask(s.pre))===s.net && s.pre>best){ best=s.pre; dstSegKey=k; }
+  });
+  const srcSegKey = srcNet+'|'+srcPrefix;
+
+  const okMsg=(hops)=>{
+    line(`<span class="dim">正在解析链路路径…</span>`);
+    line(`<span class="ok">Reply from ${dstIp}: bytes=32 time&lt;1ms TTL=64</span>`);
+    line(`<span class="hl">路径: ${hops.join(' → ')}</span>`);
+    line(`<span class="ok">✓ Ping 通！共经过 ${hops.length-1} 段转发</span>`);
+    box.innerHTML=out;
+  };
+  const srcHasLink = links.some(l=>l.a.dev===src.id||l.b.dev===src.id);
+  if(!srcHasLink){ line(`<span class="err">✗ 目标主机不可达：${src.name} 未连接任何链路</span>`); box.innerHTML=out; return; }
+  if(!dstSegKey){
+    line(`<span class="err">✗ 目标网络不可达：未找到包含 ${dstIp} 的已知网段</span>`);
+    line(`<span class="dim">请检查目标设备接口 IP 是否已正确配置。</span>`);
+    box.innerHTML=out; return;
+  }
+  if(srcSegKey===dstSegKey){ okMsg([src.name, dst.name]); return; }
+
+  const segAdj={}; segKeys.forEach(k=>segAdj[k]=[]);
+  const routerBySeg={};
+  devices.filter(d=>DEVICE_TYPES[d.type].l3).forEach(d=>{
+    const mySegs=new Set();
+    d.interfaces.forEach(itf=>{
+      if(!itf.ip||ipToInt(itf.ip)===null) return;
+      const k=networkOf(itf.ip,itf.mask)+'|'+maskToPrefix(itf.mask);
+      if(segs[k]) mySegs.add(k);
+    });
+    const arr=[...mySegs];
+    for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){
+      if(!segAdj[arr[i]].includes(arr[j])) segAdj[arr[i]].push(arr[j]);
+      if(!segAdj[arr[j]].includes(arr[i])) segAdj[arr[j]].push(arr[i]);
+      (routerBySeg[arr[i]+'>'+arr[j]]=routerBySeg[arr[j]+'>'+arr[i]]=d);
+    }
+  });
+  const q=[srcSegKey], prev={}; prev[srcSegKey]=null;
+  while(q.length){
+    const cur=q.shift();
+    if(cur===dstSegKey) break;
+    (segAdj[cur]||[]).forEach(nx=>{ if(!(nx in prev)){ prev[nx]=cur; q.push(nx);} });
+  }
+  if(!(dstSegKey in prev)){
+    line(`<span class="err">✗ 目标网络不可达：从 ${fmtNet(srcIp,src.interfaces.find(i=>i.ip).mask)} 到 ${dstIp} 无可用路由</span>`);
+    line(`<span class="dim">请检查中间路由器/防火墙是否配置了两侧网段的接口 IP。</span>`);
+    box.innerHTML=out; return;
+  }
+  const segPath=[]; let c=dstSegKey;
+  while(c){ segPath.unshift(c); c=prev[c]; }
+  const hops=[src.name];
+  for(let i=0;i<segPath.length-1;i++){
+    const r=routerBySeg[segPath[i]+'>'+segPath[i+1]];
+    if(r) hops.push('['+r.name+']');
+  }
+  hops.push(dst.name);
+  okMsg(hops);
+}
+
+/* ---------- 网络流量动画 ---------- */
+function rebuildPackets(){
+  animState.packets = [];
+  let i=0;
+  links.forEach(l=>{
+    const st = linkStatus[l.id];
+    if(st && st.level==='error') return;  // 故障链路不转发数据包
+    const c = linkCurve(l); if(!c) return;
+    const n = (st && st.level==='warn') ? 1 : 2;
+    for(let k=0;k<n;k++){
+      animState.packets.push({
+        curve:c, offset:k/n, speed:0.00042,
+        color:(st&&st.level==='warn')?'#f59e0b':'#10b981'
+      });
+    }
+  });
+  packetLayer.innerHTML = animState.packets.map((p,idx)=>`<circle class="pkt" id="pkt_${idx}" r="4.5" fill="${p.color}" stroke="#fff" stroke-width="1.5" opacity=".95" style="color:${p.color}"/>`).join('');
+}
+function refreshPacketCurves(){
+  if(!animState.running) return;
+  let i=0;
+  links.forEach(l=>{
+    const st=linkStatus[l.id];
+    if(st&&st.level==='error') return;
+    const c=linkCurve(l); if(!c) return;
+    const n=(st&&st.level==='warn')?1:2;
+    for(let k=0;k<n;k++){ if(animState.packets[i]) animState.packets[i].curve=c; i++; }
+  });
+}
+function trafficFrame(ts){
+  if(!animState.running) return;
+  if(!animState.startTime) animState.startTime=ts;
+  const el = ts - animState.startTime;
+  animState.packets.forEach((p,i)=>{
+    const t = (el*p.speed + p.offset) % 1;
+    const pt = bezierPoint(p.curve.p0,p.curve.p1,p.curve.p2,p.curve.p3,t);
+    const c = document.getElementById('pkt_'+i);
+    if(c){ c.setAttribute('cx',pt.x); c.setAttribute('cy',pt.y); }
+  });
+  animState.rafId = requestAnimationFrame(trafficFrame);
+}
+function toggleTraffic(){
+  if(animState.running){ stopTraffic(); return; }
+  if(!links.length){ toast('请先连接设备'); return; }
+  // 未测试过则先自动诊断，让故障链路高亮
+  if(!Object.keys(linkStatus).length){ runFullTest(); }
+  animState.running = true;
+  animState.startTime = 0;
+  rebuildPackets();
+  const btn=document.getElementById('btnTraffic');
+  btn.textContent='⏹ 停止演示';
+  btn.classList.add('primary');
+  animState.rafId = requestAnimationFrame(trafficFrame);
+  toast('🌊 数据包正在沿正常链路流动；故障链路以红色闪烁提示');
+}
+function stopTraffic(){
+  animState.running = false;
+  cancelAnimationFrame(animState.rafId);
+  packetLayer.innerHTML = '';
+  const btn=document.getElementById('btnTraffic');
+  btn.textContent='🌊 流量演示';
+  btn.classList.remove('primary');
+}
+
+/* ---------- 保存 / 加载 / 示例 / 清空 ---------- */
+document.getElementById('btnSave').addEventListener('click',()=>{
+  const data = JSON.stringify({version:1,devices,links,selectedLinkType},null,2);
+  const blob = new Blob([data],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'network-topology.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('拓扑已导出为 JSON 文件');
+});
+document.getElementById('btnLoad').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!Array.isArray(data.devices)||!Array.isArray(data.links)) throw new Error('格式不正确');
+      devices=data.devices; links=data.links;
+      if(data.selectedLinkType && LINK_TYPES[data.selectedLinkType]) selectedLinkType=data.selectedLinkType;
+      idSeq=Math.max(1,...devices.map(d=>parseInt(String(d.id).replace(/\D/g,'').slice(0,6))||1),...links.map(l=>parseInt(String(l.id).replace(/\D/g,'').slice(0,6))||1))+1;
+      selectedId=null; linkStart=null; linkStatus={};
+      stopTraffic(); render(); renderLinkTypes(); renderConfig();
+      renderLinkStatusPanel();
+      toast('拓扑加载成功');
+    }catch(err){ toast('加载失败：'+err.message); }
+  };
+  reader.readAsText(f);
+  e.target.value='';
+});
+document.getElementById('btnClear').addEventListener('click',()=>{
+  if(devices.length && !confirm('确定要清空整个画布吗？')) return;
+  devices=[];links=[];selectedId=null;linkStatus={};stopTraffic();cancelLink();render();renderConfig();renderLinkStatusPanel();
+  document.getElementById('checkResults').innerHTML='<div class="empty-state" style="padding:24px 8px">画布已清空，请重新添加设备。</div>';
+  document.getElementById('pingBox').innerHTML='// 测试结果将显示在这里';
+  toast('画布已清空');
+});
+document.getElementById('btnDelete').addEventListener('click',deleteSelected);
+document.getElementById('btnCheck').addEventListener('click',runFullTest);
+document.getElementById('btnFullTest').addEventListener('click',runFullTest);
+document.getElementById('btnPing').addEventListener('click',runPing);
+document.getElementById('btnTraffic').addEventListener('click',toggleTraffic);
+
+document.getElementById('btnDemo').addEventListener('click',loadDemo);
+function loadDemo(){
+  stopTraffic();
+  const mk=(type,name,x,y,ips,gw)=>({
+    id:uid('d'),type,name,x,y,gateway:gw||'',
+    interfaces:DEVICE_TYPES[type].names.map((n,i)=>({ip:(ips&&ips[i])||'',mask:'255.255.255.0'}))
+  });
+  devices=[
+    mk('pc','PC-1',40,90,['192.168.1.10'],'192.168.1.1'),
+    mk('switch','SW-1',200,90,['','','','']),
+    mk('router','R-1',370,90,['192.168.1.1','10.0.0.1','']),
+    mk('firewall','FW-1',540,90,['10.0.0.2','172.16.1.1','']),
+    mk('server','Web-Server',710,90,['172.16.1.10'],'172.16.1.1'),
+    mk('pc','PC-2',200,260,['192.168.1.11'],'192.168.1.1')
+  ];
+  const id=i=>devices[i].id;
+  links=[
+    {id:uid('l'),a:{dev:id(0),port:0},b:{dev:id(1),port:0},type:'copper'},
+    {id:uid('l'),a:{dev:id(5),port:0},b:{dev:id(1),port:1},type:'copper'},
+    {id:uid('l'),a:{dev:id(1),port:2},b:{dev:id(2),port:0},type:'fiber'},
+    {id:uid('l'),a:{dev:id(2),port:1},b:{dev:id(3),port:0},type:'fiber'},
+    {id:uid('l'),a:{dev:id(3),port:1},b:{dev:id(4),port:0},type:'copper'}
+  ];
+  selectedId=null; linkStart=null; linkStatus={};
+  render(); renderConfig();
+  document.getElementById('pingSrc').value=id(0);
+  document.getElementById('pingDst').value=id(4);
+  document.getElementById('pingIp').value='172.16.1.10';
+  runFullTest();
+  toast('已加载示例拓扑：PC → Switch → Router → Firewall → Server');
+}
+
+/* ---------- 画布拖放与快捷键 ---------- */
+center.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy'; });
+center.addEventListener('drop',e=>{
+  e.preventDefault();
+  const type=e.dataTransfer.getData('text/device-type');
+  if(!DEVICE_TYPES[type]) return;
+  const rect=center.getBoundingClientRect();
+  addDevice(type, e.clientX-rect.left-DEVICE_W/2, e.clientY-rect.top-40);
+});
+center.addEventListener('mousedown',e=>{
+  if(e.target===center||e.target.classList.contains('canvas-grid')||e.target.id==='linkLayer'||e.target.id==='packetLayer'){
+    if(linkStart) cancelLink();
+    selectedId=null;
+    document.getElementById('btnDelete').disabled=true;
+    renderNodes(); renderConfig();
+  }
+});
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(linkStart) cancelLink();
+    if(modalDeviceId) closeConfigModal();
+  }
+  if((e.key==='Delete'||e.key==='Backspace') && selectedId && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){
+    e.preventDefault(); deleteSelected();
+  }
+});
+
+/* ---------- 初始化 ---------- */
+renderPalette();
+renderLinkTypes();
+render();
+</script>
+</body>
+</html>
