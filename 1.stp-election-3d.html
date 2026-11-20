@@ -1,1 +1,757 @@
-# lee
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生成树协议（STP）选举过程 · 三维动画</title>
+<style>
+  :root{
+    --bg:#070c18;
+    --panel:rgba(14,22,44,.86);
+    --line:rgba(120,160,220,.22);
+    --text:#e8f0fb;
+    --muted:#93a6c4;
+    --cyan:#38bdf8;
+    --green:#34d399;
+    --orange:#fb923c;
+    --gold:#fbbf24;
+    --red:#f87171;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+    font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB",sans-serif}
+  #app{position:relative;width:100vw;height:100vh}
+  #scene{position:absolute;inset:0}
+  #scene canvas{display:block}
+
+  /* 顶部标题栏 */
+  #topbar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;
+    padding:16px 26px;background:linear-gradient(180deg,rgba(7,12,24,.9),rgba(7,12,24,0));pointer-events:none;z-index:5}
+  #topbar .title{font-size:20px;font-weight:700;letter-spacing:.5px}
+  #topbar .title small{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:3px;letter-spacing:1px}
+  #topbar .title .copy{display:block;font-size:12px;color:#fbbf24;font-weight:600;margin-top:5px;letter-spacing:1px;text-shadow:0 0 10px rgba(251,191,36,.45)}
+  #stepBadge{font-size:13px;color:var(--cyan);background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.35);
+    padding:8px 16px;border-radius:20px;white-space:nowrap}
+
+  /* 步骤导航（可点击跳转） */
+  #stepNav{position:absolute;top:96px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:6;flex-wrap:wrap;justify-content:center}
+  .step-btn{background:rgba(14,22,44,.78);border:1px solid var(--line);color:var(--muted);border-radius:16px;
+    padding:6px 12px;font-size:11px;cursor:pointer;transition:.2s;white-space:nowrap;backdrop-filter:blur(6px)}
+  .step-btn:hover{border-color:var(--cyan);color:#fff;transform:translateY(-2px)}
+  .step-btn.on{background:rgba(56,189,248,.2);border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 14px rgba(56,189,248,.3)}
+  .step-btn.done{color:#9ec3e0}
+  .step-btn .num{display:inline-block;width:16px;height:16px;line-height:16px;text-align:center;border-radius:50%;
+    background:rgba(147,166,196,.2);margin-right:5px;font-size:10px}
+  .step-btn.on .num{background:var(--cyan);color:#04121f}
+
+  /* 悬浮提示 */
+  #tooltip{position:absolute;z-index:15;display:none;pointer-events:none;background:rgba(6,10,22,.92);
+    border:1px solid rgba(56,189,248,.45);border-radius:8px;padding:7px 11px;font-size:12px;color:#dce9fb;
+    box-shadow:0 6px 20px rgba(0,0,0,.5);white-space:nowrap}
+  #tooltip b{color:var(--cyan)}
+
+  /* 详情面板 */
+  #infoPanel{position:absolute;right:22px;top:120px;width:286px;z-index:12;background:var(--panel);
+    border:1px solid rgba(56,189,248,.3);border-radius:14px;padding:0;backdrop-filter:blur(10px);
+    box-shadow:0 14px 44px rgba(0,0,0,.5);transform:translateX(340px);transition:transform .35s cubic-bezier(.2,.8,.3,1)}
+  #infoPanel.show{transform:translateX(0)}
+  #infoPanel .ih{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;
+    border-bottom:1px solid var(--line);font-size:15px;font-weight:700;color:#fff}
+  #infoPanel .ih button{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
+  #infoPanel .ih button:hover{color:#fff}
+  #infoPanel .ib{padding:14px 16px;font-size:12.5px;line-height:1.8;color:#c6d5eb;max-height:52vh;overflow:auto}
+  #infoPanel .ib .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed rgba(147,166,196,.16)}
+  #infoPanel .ib .kv:last-child{border-bottom:none}
+  #infoPanel .ib .kv .k{color:var(--muted);flex:none}
+  #infoPanel .ib .kv .v{text-align:right;color:#e8f0fb}
+  #infoPanel .ib .tag{display:inline-block;padding:1px 8px;border-radius:9px;font-size:11px;font-weight:700;color:#04121f}
+  #infoPanel .ib h5{font-size:12px;color:var(--cyan);margin:12px 0 4px;letter-spacing:.5px}
+  #infoPanel .ib .note{font-size:11.5px;color:#8fa6c6;margin-top:10px;line-height:1.6}
+
+  /* 字幕 */
+  #subtitle{position:absolute;left:50%;bottom:132px;transform:translateX(-50%);z-index:6;
+    width:min(880px,86%);text-align:center;pointer-events:none}
+  #subtitle .box{display:inline-block;background:rgba(6,10,22,.82);border:1px solid var(--line);
+    border-radius:14px;padding:14px 26px;font-size:20px;line-height:1.6;letter-spacing:.5px;
+    box-shadow:0 10px 40px rgba(0,0,0,.45);transition:opacity .25s}
+  #subtitle .box b{color:var(--cyan)}
+
+  /* 图例 */
+  #legend{position:absolute;left:24px;bottom:120px;z-index:5;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px;font-size:12px;color:var(--muted);pointer-events:none}
+  #legend h4{font-size:12px;color:var(--text);margin-bottom:8px;font-weight:600;letter-spacing:1px}
+  #legend .row{display:flex;align-items:center;gap:8px;margin:5px 0}
+  #legend .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+  /* 底部控制条 */
+  #controls{position:absolute;left:0;right:0;bottom:0;z-index:7;display:flex;align-items:center;gap:16px;
+    padding:16px 26px 20px;background:linear-gradient(0deg,rgba(7,12,24,.96),rgba(7,12,24,.6) 70%,rgba(7,12,24,0))}
+  .btn{background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.4);color:var(--cyan);
+    width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;
+    justify-content:center;transition:.2s;flex:none}
+  .btn:hover{background:rgba(56,189,248,.25);transform:translateY(-2px)}
+  .btn.small{width:auto;height:36px;padding:0 14px;border-radius:18px;font-size:13px}
+  #progressWrap{flex:1;display:flex;flex-direction:column;gap:6px;min-width:120px}
+  #progress{width:100%;height:6px;border-radius:3px;background:rgba(147,166,196,.2);cursor:pointer;position:relative;overflow:hidden}
+  #progress .fill{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:3px;transition:width .1s linear}
+  #progress .marks{position:absolute;inset:0}
+  #progress .marks i{position:absolute;top:0;width:2px;height:100%;background:rgba(255,255,255,.35)}
+  #timeRow{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  #speedSel{background:rgba(20,30,55,.9);border:1px solid var(--line);color:var(--text);border-radius:8px;
+    padding:8px 10px;font-size:13px;cursor:pointer;outline:none}
+  .btn.small.active{background:rgba(56,189,248,.28);border-color:var(--cyan);color:#fff;box-shadow:0 0 12px rgba(56,189,248,.35)}
+  #controls .sep{width:1px;height:26px;background:var(--line);flex:none}
+  #controls .btn.small{min-width:38px}
+
+  /* 三维标签 */
+  .lb{font-family:"Microsoft YaHei",sans-serif;white-space:nowrap;user-select:none;pointer-events:none}
+  .lb-sw{font-size:16px;font-weight:700;color:#fff;padding:4px 10px;border-radius:8px;
+    background:rgba(10,16,32,.85);border:1px solid rgba(120,160,220,.4);text-shadow:0 0 8px rgba(56,189,248,.6)}
+  .lb-bid{font-size:11px;color:#b9c9e2;background:rgba(10,16,32,.7);padding:2px 7px;border-radius:5px;margin-top:2px}
+  .lb-port{font-size:10px;color:#dbe6f7;background:rgba(6,10,22,.82);border:1px solid rgba(147,166,196,.35);
+    padding:2px 6px;border-radius:5px}
+  .lb-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;color:#04121f}
+  .badge-root{background:var(--cyan);box-shadow:0 0 14px var(--cyan)}
+  .badge-desig{background:var(--green);box-shadow:0 0 14px var(--green)}
+  .badge-block{background:var(--orange);box-shadow:0 0 14px var(--orange);color:#2b1200}
+  .badge-crown{background:linear-gradient(135deg,#fde68a,#fbbf24);color:#3b2600;box-shadow:0 0 18px var(--gold)}
+
+  /* 开始遮罩 */
+  #intro{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 40%,#10203c,#070c18 70%);text-align:center}
+  #intro .card{max-width:640px;padding:0 24px}
+  #intro h1{font-size:38px;letter-spacing:1px;margin-bottom:10px;
+    background:linear-gradient(90deg,#38bdf8,#34d399);-webkit-background-clip:text;color:transparent}
+  #intro p{color:var(--muted);font-size:15px;line-height:1.9;margin-bottom:28px}
+  #intro .chip{display:inline-block;font-size:12px;color:var(--cyan);border:1px solid rgba(56,189,248,.4);
+    border-radius:16px;padding:5px 14px;margin:0 5px 18px}
+  #startBtn{background:linear-gradient(135deg,var(--cyan),#0ea5e9);color:#04121f;border:none;border-radius:30px;
+    padding:15px 46px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 8px 30px rgba(56,189,248,.35);transition:.2s}
+  #startBtn:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(56,189,248,.55)}
+  #intro .tip{display:block;margin-top:18px;font-size:12px;color:#64748b}
+
+  #err{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
+    background:#070c18;color:#f87171;font-size:16px;text-align:center;padding:40px;line-height:1.8}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene"></div>
+
+  <div id="topbar">
+    <div class="title">生成树协议（STP）选举过程<small>SPANNING TREE PROTOCOL · 3D INTERACTIVE VISUALIZATION</small>
+      <span class="copy">广东交通职业技术学院 ●版权所有</span></div>
+    <div id="stepBadge">准备就绪</div>
+  </div>
+  <div id="stepNav"></div>
+
+  <div id="tooltip"></div>
+  <div id="infoPanel">
+    <div class="ih"><span id="iTitle">对象详情</span><button id="iClose" title="关闭">✕</button></div>
+    <div class="ib" id="iBody"></div>
+  </div>
+
+  <div id="legend">
+    <h4>端口状态图例</h4>
+    <div class="row"><span class="sw" style="background:#fbbf24"></span>根桥 Root Bridge</div>
+    <div class="row"><span class="sw" style="background:#38bdf8"></span>根端口 Root Port</div>
+    <div class="row"><span class="sw" style="background:#34d399"></span>指定端口 Designated</div>
+    <div class="row"><span class="sw" style="background:#fb923c"></span>阻塞端口 Blocked</div>
+  </div>
+
+  <div id="subtitle"><div class="box" id="subBox">点击「开始播放」，跟随动画学习生成树的选举过程。</div></div>
+
+  <div id="controls">
+    <button class="btn small" id="prevBtn" title="上一步 (←)">⏮</button>
+    <button class="btn" id="playBtn" title="播放/暂停 (空格)">▶</button>
+    <button class="btn small" id="nextBtn" title="下一步 (→)">⏭</button>
+    <button class="btn small" id="replayBtn" title="重新播放 (R)">↺ 重播</button>
+    <div id="progressWrap">
+      <div id="progress"><div class="fill" id="pFill"></div><div class="marks" id="pMarks"></div></div>
+      <div id="timeRow"><span id="tCur">00:00</span><span id="tDur">03:00</span></div>
+    </div>
+    <div class="sep"></div>
+    <button class="btn small" id="muteBtn" title="静音/取消静音 (M)">🔊 语音</button>
+    <select id="speedSel" title="语速">
+      <option value="0.85">语速 0.85×</option>
+      <option value="1" selected>语速 1.0×</option>
+      <option value="1.15">语速 1.15×</option>
+    </select>
+    <button class="btn small" id="resetBtn" title="重置视角">⟲ 视角</button>
+    <button class="btn small" id="rotateBtn" title="自动旋转">🔄 旋转</button>
+    <button class="btn small" id="fullBtn" title="全屏 (F)">⛶ 全屏</button>
+  </div>
+
+  <div id="intro" style="display:none">
+    <div class="card">
+      <h1>生成树协议选举过程</h1>
+      <p>一段 3 分钟的三维动画，带你走完 STP 选举的四个关键步骤：<br>
+         选根桥 → 选根端口 → 选指定端口 → 阻塞冗余端口。<br>
+         配有中文语音讲解与同步字幕，可旋转视角、暂停回看。</p>
+      <span class="chip">🎧 语音讲解</span><span class="chip">📺 同步字幕</span><span class="chip">🖱 点击设备看详情</span><span class="chip">⌨ 键盘快捷键</span><br>
+      <button id="startBtn">▶ 开始播放</button>
+      <span class="tip">交互：点击交换机 / 端口 / 链路查看详细信息 · 顶部步骤条可跳转 · 空格播放暂停 · ←→ 切换步骤 · 数字 1–8 直达<br>
+      <span style="color:#fbbf24;font-weight:600">广东交通职业技术学院 ●版权所有</span></span>
+    </div>
+  </div>
+
+  <div id="err">三维引擎加载失败，请检查网络连接后刷新页面。<br>（本页需联网加载 Three.js 组件）</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+<script>
+/* ==================== 数据定义 ==================== */
+// 交换机（桥ID = 优先级 + MAC）
+const SW = {
+  SW1:{name:'SW1', bid:'32768 . 00:00:00:00:00:01', short:'00:01', pos:[0,3.1,0],   color:0x2f7fd6},
+  SW2:{name:'SW2', bid:'32768 . 00:00:00:00:00:02', short:'00:02', pos:[-3.7,0,-0.4],color:0x2f7fd6},
+  SW3:{name:'SW3', bid:'32768 . 00:00:00:00:00:03', short:'00:03', pos:[3.7,0,-0.4], color:0x8b5cf6},
+  SW4:{name:'SW4', bid:'32768 . 00:00:00:00:00:04', short:'00:04', pos:[0,-2.5,2.0], color:0x8b5cf6}
+};
+// 链路（a端/ b端端口）。cost 均为 19
+const LINKS = [
+  {id:'L12', a:'SW1', b:'SW2', ap:'Fa0/1', bp:'Fa0/1'},
+  {id:'L13', a:'SW1', b:'SW3', ap:'Fa0/2', bp:'Fa0/1'},
+  {id:'L23', a:'SW2', b:'SW3', ap:'Fa0/2', bp:'Fa0/2'},
+  {id:'L24', a:'SW2', b:'SW4', ap:'Fa0/3', bp:'Fa0/1'},
+  {id:'L34', a:'SW3', b:'SW4', ap:'Fa0/3', bp:'Fa0/2'}
+];
+// 端口目标状态（按阶段累计）：key = 链路id_端点(a/b)
+// 状态: idle默认 / desig指定 / root根端口 / block阻塞
+const PORT_STATE = {
+  0:{}, 1:{}, 2:{},
+  3:{'L12_a':'desig','L13_a':'desig'},
+  4:{'L12_a':'desig','L13_a':'desig','L12_b':'root','L13_b':'root','L24_b':'root'},
+  5:{'L12_a':'desig','L13_a':'desig','L12_b':'root','L13_b':'root','L24_b':'root',
+     'L23_a':'desig','L24_a':'desig','L34_a':'desig'},
+  6:{'L12_a':'desig','L13_a':'desig','L12_b':'root','L13_b':'root','L24_b':'root',
+     'L23_a':'desig','L24_a':'desig','L34_a':'desig','L23_b':'block','L34_b':'block'},
+  7:{'L12_a':'desig','L13_a':'desig','L12_b':'root','L13_b':'root','L24_b':'root',
+     'L23_a':'desig','L24_a':'desig','L34_a':'desig','L23_b':'block','L34_b':'block'}
+};
+const C = { idle:0x5c7fa8, desig:0x34d399, root:0x38bdf8, block:0xfb923c, warn:0xf87171, rootBridge:0xfbbf24 };
+
+/* ==================== 时间轴 / 旁白 / 字幕 ==================== */
+const TOTAL = 180;
+const stages = [
+  { start:0,   end:18,  badge:'开场 · 为什么需要生成树',
+    voice:'大家好，今天我们学习生成树协议，简称 STP。在二层网络中，为了提高可靠性，我们常常部署冗余链路。但冗余链路会带来一个严重的问题——环路。',
+    subs:['在二层网络中，为提高可靠性，我们常常部署冗余链路。','但冗余链路会带来一个严重的问题 —— 环路。'] },
+  { start:18,  end:36,  badge:'问题 · 环路的危害',
+    voice:'环路会引发广播风暴和 MAC 地址表震荡，甚至让网络瘫痪。生成树协议的作用，是保留冗余链路做备份，同时逻辑上阻塞多余端口，把环路修剪成一棵无环的树。',
+    subs:['环路会引发广播风暴和 MAC 地址表震荡，甚至让网络瘫痪。','生成树协议保留冗余链路做备份，同时阻塞多余端口，把环路修剪成一棵无环的树。'] },
+  { start:36,  end:52,  badge:'拓扑 · 认识网络',
+    voice:'看这个拓扑：四台交换机之间有多条冗余链路，形成了一个环。每台交换机都有桥 ID，由优先级和 MAC 地址组成。',
+    subs:['看这个拓扑：四台交换机之间有多条冗余链路，形成了一个环。','每台交换机都有桥 ID，由优先级和 MAC 地址组成。'] },
+  { start:52,  end:82,  badge:'第 1 步 · 选举根网桥',
+    voice:'第一步，选举根网桥。所有交换机互相比较桥 ID，最小的成为根桥。这里四台交换机优先级都是 32768，于是比较 MAC 地址。SW1 的地址最小，成为根桥。记住：根桥上的所有端口都是指定端口，处于转发状态，不会被阻塞。',
+    subs:['第一步，选举根网桥。桥 ID 最小的交换机成为根桥。','四台交换机优先级相同，比较 MAC 地址，SW1 最小，成为根桥。','记住：根桥上的所有端口都是指定端口，处于转发状态。'] },
+  { start:82,  end:117, badge:'第 2 步 · 选举根端口',
+    voice:'第二步，每台非根交换机选出一个根端口，就是到根桥路径开销最小的端口。SW2 和 SW3 直连根桥，各自的直连端口就是根端口。SW4 到根桥的两条路径开销都是 38，这时比较上游桥 ID，SW2 更小，所以 SW4 面向 SW2 的端口成为根端口。',
+    subs:['第二步：每台非根交换机选出到根桥路径开销最小的端口，叫根端口。','SW2 和 SW3 都直连根桥，各自的直连端口就是根端口。','SW4 两条路径开销都是 38，比较上游桥 ID，SW2 更小，故 SW4 面向 SW2 的端口为根端口。'] },
+  { start:117, end:144, badge:'第 3 步 · 选举指定端口',
+    voice:'第三步，每个网段选举指定端口，根桥上的端口自动成为指定端口。SW2 和 SW3 之间，两者到根桥开销相同，就比较桥 ID，SW2 更小，所以 SW2 这一端是指定端口。其余网段，都由离根桥更近的交换机担任指定端口。',
+    subs:['第三步：每个网段选举指定端口，根桥上的端口自动成为指定端口。','SW2 与 SW3 之间开销相同，比较桥 ID，SW2 更小，它这一端为指定端口。','其余网段，由离根桥更近的交换机担任指定端口。'] },
+  { start:144, end:168, badge:'第 4 步 · 阻塞端口，成树',
+    voice:'第四步，既不是根端口也不是指定端口的端口，全部阻塞。这里 SW3 连 SW2 的端口、SW4 连 SW3 的端口被阻塞。环路被打破，一棵无环的生成树形成了。被阻塞的链路作为备份，主链路故障时才会被激活。',
+    subs:['第四步：既不是根端口也不是指定端口的端口，全部阻塞。','SW3 连 SW2、SW4 连 SW3 的端口被阻塞，环路被打破，生成树形成。','被阻塞的链路作为备份，主链路故障时才会被激活。'] },
+  { start:168, end:180, badge:'总结 · 四步口诀',
+    voice:'总结：生成树选举四步走——选根桥、选根端口、选指定端口、阻塞其余端口。它在冗余与环路之间取得了平衡。感谢观看！',
+    subs:['总结：生成树选举四步走。','选根桥、选根端口、选指定端口、阻塞其余端口。','它在冗余与环路之间取得了平衡。感谢观看！'] }
+];
+
+/* ==================== 引擎初始化 ==================== */
+if (typeof THREE === 'undefined') {
+  document.getElementById('err').style.display='flex';
+}
+(function(){
+  if (typeof THREE === 'undefined') return;
+  const host = document.getElementById('scene');
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x070c18, 0.022);
+  const camera = new THREE.PerspectiveCamera(48, innerWidth/innerHeight, 0.1, 200);
+  camera.position.set(0, 4.5, 14);
+
+  const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  host.appendChild(renderer.domElement);
+
+  const labelRenderer = new THREE.CSS2DRenderer();
+  labelRenderer.setSize(innerWidth, innerHeight);
+  labelRenderer.domElement.style.position='absolute';
+  labelRenderer.domElement.style.top='0';
+  labelRenderer.domElement.style.pointerEvents='none';
+  host.appendChild(labelRenderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.target.set(0,0.2,0.4);
+  controls.minDistance = 7;
+  controls.maxDistance = 26;
+  controls.maxPolarAngle = Math.PI*0.85;
+
+  scene.add(new THREE.AmbientLight(0x9fc0ff, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 0.85); key.position.set(6,10,8); scene.add(key);
+  const rim = new THREE.PointLight(0x38bdf8, 0.9, 40); rim.position.set(-6,-2,6); scene.add(rim);
+
+  // 地面网格
+  const grid = new THREE.GridHelper(40, 40, 0x1c3a63, 0x122542);
+  grid.position.y = -4.2; grid.material.opacity=0.55; grid.material.transparent=true;
+  scene.add(grid);
+  // 星点背景
+  const starGeo = new THREE.BufferGeometry();
+  const sp = [];
+  for(let i=0;i<420;i++){
+    sp.push((Math.random()-0.5)*60,(Math.random()-0.2)*40,(Math.random()-0.5)*60);
+  }
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(sp,3));
+  scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({color:0x4a6fa5,size:0.06,transparent:true,opacity:0.6})));
+
+  /* ---------- 构建交换机 ---------- */
+  const switchObjs = {};
+  const pickables = [];   // 可被点击/悬停拾取的三维对象
+  const v3 = id => new THREE.Vector3(...SW[id].pos);
+  for(const id in SW){
+    const g = new THREE.Group();
+    g.position.copy(v3(id));
+    const bodyMat = new THREE.MeshStandardMaterial({color:SW[id].color,metalness:0.55,roughness:0.35,
+      emissive:SW[id].color,emissiveIntensity:0.12});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.7,0.7,1.3), bodyMat);
+    body.userData.pick = {kind:'switch', id:id};
+    pickables.push(body);
+    g.add(body);
+    // 顶盖
+    const top = new THREE.Mesh(new THREE.BoxGeometry(1.78,0.08,1.38),
+      new THREE.MeshStandardMaterial({color:0x0b1730,metalness:0.7,roughness:0.3}));
+    top.position.y=0.38; g.add(top);
+    // 指示灯
+    for(let i=0;i<8;i++){
+      const led = new THREE.Mesh(new THREE.SphereGeometry(0.045,10,10),
+        new THREE.MeshBasicMaterial({color: i%3===0?0x34d399:0x38bdf8}));
+      led.position.set(-0.65+i*0.18, 0.44, 0.45);
+      g.add(led);
+    }
+    // 选中光环
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(1.35,0.045,8,60),
+      new THREE.MeshBasicMaterial({color:C.rootBridge,transparent:true,opacity:0}));
+    halo.rotation.x=Math.PI/2; halo.position.y=-0.15; g.add(halo);
+    // 标签
+    const lb = document.createElement('div'); lb.className='lb lb-sw';
+    lb.innerHTML = SW[id].name;
+    const lbObj = new THREE.CSS2DObject(lb); lbObj.position.set(0,1.0,0); g.add(lbObj);
+    const bid = document.createElement('div'); bid.className='lb lb-bid';
+    bid.textContent = SW[id].bid; const bidObj=new THREE.CSS2DObject(bid);
+    bidObj.position.set(0,0.62,0); g.add(bidObj);
+    const crown = document.createElement('div'); crown.className='lb lb-badge badge-crown';
+    crown.textContent='👑 根桥 ROOT'; crown.style.display='none';
+    const crownObj=new THREE.CSS2DObject(crown); crownObj.position.set(0,1.55,0); g.add(crownObj);
+
+    scene.add(g);
+    switchObjs[id]={group:g, bodyMat, halo, crown, baseColor:SW[id].color};
+  }
+
+  /* ---------- 构建链路 + 端口 ---------- */
+  const linkObjs = {}, portObjs = {};
+  for(const L of LINKS){
+    const pa=v3(L.a), pb=v3(L.b);
+    const dir = new THREE.Vector3().subVectors(pb,pa);
+    const len = dir.length();
+    const mat = new THREE.MeshStandardMaterial({color:0x4a6b96,emissive:0x1b3358,emissiveIntensity:0.4,
+      metalness:0.3,roughness:0.5,transparent:true,opacity:0.95});
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,len-1.4,14), mat);
+    cyl.position.copy(pa).add(pb).multiplyScalar(0.5);
+    cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+    cyl.userData.pick = {kind:'link', id:L.id};
+    pickables.push(cyl);
+    scene.add(cyl);
+
+    // 流动粒子
+    const particles=[];
+    for(let i=0;i<5;i++){
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.1,10,10),
+        new THREE.MeshBasicMaterial({color:C.idle,transparent:true,opacity:0.9}));
+      p.userData.t=i/5; scene.add(p); particles.push(p);
+    }
+    linkObjs[L.id]={mat, particles, pa, pb, dir, len, mode:'idle', flow:0.12};
+
+    // 两端端口
+    [['a',L.a,L.ap],['b',L.b,L.bp]].forEach(([side,swName,pname])=>{
+      const swp=v3(swName);
+      const toward = new THREE.Vector3().subVectors(side==='a'?pb:pa, swp).normalize();
+      const pp = swp.clone().add(toward.multiplyScalar(0.95));
+      const pmat = new THREE.MeshBasicMaterial({color:C.idle});
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.17,16,16), pmat);
+      ball.position.copy(pp);
+      ball.userData.pick = {kind:'port', key:L.id+'_'+side, sw:swName, name:pname, link:L.id, side:side};
+      pickables.push(ball);
+      scene.add(ball);
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(0.3,16,16),
+        new THREE.MeshBasicMaterial({color:C.idle,transparent:true,opacity:0.18}));
+      glow.position.copy(pp); scene.add(glow);
+      const lab=document.createElement('div'); lab.className='lb lb-port';
+      lab.textContent=pname; const lo=new THREE.CSS2DObject(lab);
+      lo.position.copy(pp.clone().add(new THREE.Vector3(0,0.42,0))); scene.add(lo);
+      const badge=document.createElement('div'); badge.className='lb lb-badge';
+      badge.style.display='none'; const bo=new THREE.CSS2DObject(badge);
+      bo.position.copy(pp.clone().add(new THREE.Vector3(0,-0.45,0))); scene.add(bo);
+      portObjs[L.id+'_'+side]={pmat, glow, lab, badge, state:'idle', target:C.idle};
+    });
+  }
+
+  /* ==================== 阶段状态应用 ==================== */
+  let curStage=-1;
+  function applyStage(idx){
+    curStage=idx;
+    const ps = PORT_STATE[idx] || {};
+    // 端口
+    for(const key in portObjs){
+      const st = ps[key] || 'idle';
+      const o = portObjs[key]; o.state = st; o.target = C[st];
+      const bmap={root:['根端口',C.root],desig:['指定端口',C.desig],block:['阻塞',C.block]};
+      if(bmap[st]){
+        o.badge.style.display='inline-block';
+        o.badge.textContent=bmap[st][0];
+        o.badge.className='lb lb-badge '+(st==='root'?'badge-root':st==='desig'?'badge-desig':'badge-block');
+      } else o.badge.style.display='none';
+    }
+    // 根桥
+    const isRoot = idx>=3;
+    for(const id in switchObjs){
+      const so=switchObjs[id];
+      if(id==='SW1' && isRoot){
+        so.bodyMat.color.setHex(C.rootBridge); so.bodyMat.emissive.setHex(C.rootBridge);
+        so.bodyMat.emissiveIntensity=0.35; so.halo.material.opacity=0.9;
+        so.crown.style.display='inline-block';
+      }else{
+        so.bodyMat.color.setHex(so.baseColor); so.bodyMat.emissive.setHex(so.baseColor);
+        so.bodyMat.emissiveIntensity=0.12; so.halo.material.opacity=0;
+        so.crown.style.display='none';
+      }
+    }
+    // 链路模式
+    for(const L of LINKS){
+      const lo=linkObjs[L.id];
+      const aSt = ps[L.id+'_a']||'idle', bSt = ps[L.id+'_b']||'idle';
+      if(idx<=1) lo.mode='warn';
+      else if(idx<=5) lo.mode='idle';
+      else if(aSt==='block'||bSt==='block') lo.mode='blocked';
+      else lo.mode='flow';
+    }
+    // 阶段标签 & 进度点
+    document.getElementById('stepBadge').textContent = stages[idx].badge;
+    document.querySelectorAll('#stepNav .step-btn').forEach((d,i)=>{
+      d.className='step-btn'+(i===idx?' on':(i<idx?' done':''));
+    });
+    // 语音
+    if(!muted) speak(stages[idx].voice);
+  }
+
+  /* ==================== 每帧视觉更新 ==================== */
+  function lerpColor(mat, targetHex, k){
+    mat.color.lerp(new THREE.Color(targetHex), k);
+  }
+  let tGlobal=0;
+  function updateVisuals(dt){
+    tGlobal+=dt;
+    // 端口颜色平滑
+    for(const key in portObjs){
+      const o=portObjs[key];
+      o.pmat.color.lerp(new THREE.Color(o.target), 0.12);
+      o.glow.material.color.copy(o.pmat.color);
+      const pulse = o.state==='block' ? (0.22+0.16*Math.sin(tGlobal*6)) : 0.18;
+      o.glow.material.opacity=pulse;
+    }
+    // 链路颜色 + 粒子
+    for(const L of LINKS){
+      const lo=linkObjs[L.id];
+      let col, opa=0.95;
+      if(lo.mode==='warn'){ col=new THREE.Color(C.warn).lerp(new THREE.Color(0xfbbf24),0.5+0.5*Math.sin(tGlobal*4)); }
+      else if(lo.mode==='blocked'){ col=new THREE.Color(C.block); opa=0.32; }
+      else if(lo.mode==='flow'){ col=new THREE.Color(0x2f8f7a); }
+      else col=new THREE.Color(0x4a6b96);
+      lo.mat.color.lerp(col,0.08); lo.mat.opacity += (opa-lo.mat.opacity)*0.1;
+      const show = lo.mode!=='blocked';
+      for(const p of lo.particles){
+        p.visible=show;
+        p.userData.t=(p.userData.t + dt*(lo.mode==='warn'?0.55:lo.mode==='flow'?0.22:0.05))%1;
+        p.position.copy(lo.pa).lerp(lo.pb, p.userData.t);
+        const pc = lo.mode==='warn'?C.warn:lo.mode==='flow'?C.desig:C.idle;
+        p.material.color.lerp(new THREE.Color(pc),0.1);
+        p.material.opacity = show ? (0.55+0.45*Math.sin(p.userData.t*Math.PI)) : 0;
+      }
+    }
+    // 光环旋转 & 交换机轻微浮动
+    for(const id in switchObjs){
+      const so=switchObjs[id];
+      so.halo.rotation.z += dt*0.8;
+      so.group.position.y = SW[id].pos[1] + Math.sin(tGlobal*1.2 + SW[id].pos[0])*0.06;
+    }
+  }
+
+  /* ==================== 时间轴控制 ==================== */
+  let isPlaying=false, curTime=0, muted=false, rate=1, lastFrame=0;
+  const playBtn=document.getElementById('playBtn');
+  const pFill=document.getElementById('pFill');
+  const tCur=document.getElementById('tCur');
+  const subBox=document.getElementById('subBox');
+
+  function fmt(s){ s=Math.max(0,Math.floor(s)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+  function findStage(t){ for(let i=0;i<stages.length;i++){ if(t>=stages[i].start && t<stages[i].end) return i; } return stages.length-1; }
+  function updateSubtitle(idx,t){
+    const st=stages[idx];
+    const prog=(t-st.start)/(st.end-st.start);
+    const i=Math.min(st.subs.length-1, Math.floor(prog*st.subs.length));
+    const txt=st.subs[i];
+    if(subBox.dataset.txt!==txt){ subBox.dataset.txt=txt; subBox.style.opacity=0;
+      setTimeout(()=>{ subBox.innerHTML=txt; subBox.style.opacity=1; },120); }
+  }
+  function refreshUI(){
+    pFill.style.width=(curTime/TOTAL*100)+'%';
+    tCur.textContent=fmt(curTime);
+    const idx=findStage(curTime);
+    if(idx!==curStage){ applyStage(idx); }
+    updateSubtitle(idx,curTime);
+  }
+
+  /* ==================== 语音（Web Speech API） ==================== */
+  let voices=[];
+  function warmVoices(){
+    if(!('speechSynthesis' in window)) return;
+    voices=speechSynthesis.getVoices();
+    speechSynthesis.onvoiceschanged=()=>{ voices=speechSynthesis.getVoices(); };
+  }
+  function speak(text){
+    if(!('speechSynthesis' in window)||muted) return;
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='zh-CN'; u.rate=rate; u.pitch=1.0;
+    const zh=voices.find(v=>/zh(-CN|-Hans)?/i.test(v.lang)) || voices.find(v=>v.lang.toLowerCase().startsWith('zh'));
+    if(zh) u.voice=zh;
+    speechSynthesis.speak(u);
+  }
+  function pauseVoice(){ if('speechSynthesis' in window) speechSynthesis.pause(); }
+  function resumeVoice(){ if('speechSynthesis' in window) speechSynthesis.resume(); }
+  function stopVoice(){ if('speechSynthesis' in window) speechSynthesis.cancel(); }
+
+  /* ==================== 播放控制（统一入口） ==================== */
+  const muteBtn=document.getElementById('muteBtn');
+  function setPlaying(v){
+    isPlaying=v; playBtn.textContent=v?'❚❚':'▶';
+    if(v){ resumeVoice(); lastFrame=performance.now(); } else pauseVoice();
+  }
+  function togglePlay(){ if(curTime>=TOTAL) curTime=0; setPlaying(!isPlaying); }
+  function replay(){
+    curTime=0; stopVoice(); applyStage(0);
+    pFill.style.width='0%'; tCur.textContent='00:00'; updateSubtitle(0,0);
+    setPlaying(true);
+  }
+  function seek(t){
+    curTime=Math.min(TOTAL-0.01,Math.max(0,t));
+    const idx=findStage(curTime);
+    applyStage(idx); updateSubtitle(idx,curTime);
+    pFill.style.width=(curTime/TOTAL*100)+'%'; tCur.textContent=fmt(curTime);
+    lastFrame=performance.now();
+  }
+  function jumpStage(i){ i=Math.max(0,Math.min(stages.length-1,i)); seek(stages[i].start+0.01); }
+  function toggleMute(){
+    muted=!muted; muteBtn.textContent=muted?'🔇 静音':'🔊 语音';
+    if(muted) stopVoice(); else if(isPlaying) speak(stages[findStage(curTime)].voice);
+  }
+  function toggleFullscreen(){
+    if(!document.fullscreenElement){ if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); }
+    else if(document.exitFullscreen){ document.exitFullscreen(); }
+  }
+  function resetView(){ camera.position.set(0,4.5,14); controls.target.set(0,0.2,0.4); controls.update(); }
+
+  /* ==================== 交互：拾取 / 详情 / 提示 ==================== */
+  const tooltip=document.getElementById('tooltip');
+  const infoPanel=document.getElementById('infoPanel');
+  const iTitle=document.getElementById('iTitle');
+  const iBody=document.getElementById('iBody');
+  const raycaster=new THREE.Raycaster();
+  const mouse=new THREE.Vector2();
+  let hovered=null, downXY=null;
+  const ST_NAME={idle:'未定（默认）', desig:'指定端口 · 转发', root:'根端口 · 转发', block:'阻塞端口 · 丢弃'};
+  const ST_COLOR={idle:'#5c7fa8', desig:'#34d399', root:'#38bdf8', block:'#fb923c'};
+  const ROOT_COST={SW1:0, SW2:19, SW3:19, SW4:38};
+  const tag=(text,color)=>'<span class="tag" style="background:'+color+'">'+text+'</span>';
+
+  function portNote(st){
+    return {
+      idle:'选举尚未完成，端口处于初始侦听状态。',
+      desig:'该网段中到根桥开销最小的端口，负责向本网段转发数据。',
+      root:'非根交换机上到根桥路径开销最小的端口，每台非根交换机只有一个。',
+      block:'既非根端口也非指定端口，被逻辑阻塞以打破环路，不转发用户数据。'
+    }[st]||'';
+  }
+  function showInfo(p){
+    if(!p) return;
+    let title='', html='';
+    if(p.kind==='switch'){
+      const id=p.id, sw=SW[id], isRoot=(id==='SW1'&&curStage>=3);
+      title=id+' · 交换机详情';
+      html='<div class="kv"><span class="k">桥 ID</span><span class="v">'+sw.bid+'</span></div>'
+        +'<div class="kv"><span class="k">优先级 / MAC 尾号</span><span class="v">32768 / '+sw.short+'</span></div>'
+        +'<div class="kv"><span class="k">当前角色</span><span class="v">'+tag(isRoot?'根桥 ROOT':'非根桥',isRoot?'#fbbf24':'#5c7fa8')+'</span></div>'
+        +'<div class="kv"><span class="k">到根桥路径开销</span><span class="v">'+ROOT_COST[id]+'</span></div>'
+        +'<h5>本机端口状态</h5>';
+      Object.keys(portObjs).forEach(key=>{
+        const o=portObjs[key], seg=key.split('_'), L=LINKS.find(x=>x.id===seg[0]);
+        const swName=seg[1]==='a'?L.a:L.b;
+        if(swName!==id) return;
+        const pname=seg[1]==='a'?L.ap:L.bp, peer=seg[1]==='a'?L.b:L.a;
+        html+='<div class="kv"><span class="k">'+pname+' → '+peer+'</span><span class="v">'+tag(ST_NAME[o.state],ST_COLOR[o.state])+'</span></div>';
+      });
+      html+='<div class="note">桥 ID 由优先级与 MAC 地址组成，数值最小者当选根桥。根桥的所有活动端口都是指定端口。</div>';
+    }else if(p.kind==='port'){
+      const o=portObjs[p.key], L=LINKS.find(x=>x.id===p.link);
+      title=p.name+' · 端口详情';
+      html='<div class="kv"><span class="k">所属交换机</span><span class="v">'+p.sw+'</span></div>'
+        +'<div class="kv"><span class="k">链路编号</span><span class="v">'+p.link+'</span></div>'
+        +'<div class="kv"><span class="k">对端交换机</span><span class="v">'+(p.side==='a'?L.b:L.a)+'</span></div>'
+        +'<div class="kv"><span class="k">当前状态</span><span class="v">'+tag(ST_NAME[o.state],ST_COLOR[o.state])+'</span></div>'
+        +'<div class="note">'+portNote(o.state)+'</div>';
+    }else{
+      const L=LINKS.find(x=>x.id===p.id), lo=linkObjs[p.id];
+      const aSt=portObjs[p.id+'_a'].state, bSt=portObjs[p.id+'_b'].state;
+      title=p.id+' · 链路详情';
+      html='<div class="kv"><span class="k">连接</span><span class="v">'+L.a+' ('+L.ap+') ↔ '+L.b+' ('+L.bp+')</span></div>'
+        +'<div class="kv"><span class="k">路径开销</span><span class="v">19</span></div>'
+        +'<div class="kv"><span class="k">'+L.a+' 端</span><span class="v">'+tag(ST_NAME[aSt],ST_COLOR[aSt])+'</span></div>'
+        +'<div class="kv"><span class="k">'+L.b+' 端</span><span class="v">'+tag(ST_NAME[bSt],ST_COLOR[bSt])+'</span></div>'
+        +'<div class="kv"><span class="k">链路角色</span><span class="v">'+tag(lo.mode==='blocked'?'备份（已阻塞）':'转发中',lo.mode==='blocked'?'#fb923c':'#34d399')+'</span></div>'
+        +'<div class="note">端口被阻塞时，该链路不转发数据帧，但保留为备份；主链路故障时可被激活。</div>';
+    }
+    iTitle.textContent=title; iBody.innerHTML=html; infoPanel.classList.add('show');
+  }
+  function doPick(e){
+    const r=renderer.domElement.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1;
+    mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    raycaster.setFromCamera(mouse,camera);
+    const hits=raycaster.intersectObjects(pickables,false);
+    return hits.length?hits[0].object:null;
+  }
+  renderer.domElement.addEventListener('pointermove', e=>{
+    const obj=doPick(e);
+    if(obj!==hovered){
+      hovered=obj;
+      renderer.domElement.style.cursor=obj?'pointer':'grab';
+      if(obj){
+        const p=obj.userData.pick;
+        tooltip.innerHTML = p.kind==='switch' ? ('查看交换机 <b>'+p.id+'</b> 的详情')
+          : p.kind==='port' ? ('查看端口 <b>'+p.name+'</b>（'+p.sw+'）')
+          : ('查看链路 <b>'+p.id+'</b> 的详情');
+      }
+    }
+    if(obj){ tooltip.style.display='block'; tooltip.style.left=(e.clientX+16)+'px'; tooltip.style.top=(e.clientY+16)+'px'; }
+    else tooltip.style.display='none';
+  });
+  renderer.domElement.addEventListener('pointerdown', e=>{ downXY=[e.clientX,e.clientY]; });
+  renderer.domElement.addEventListener('pointerup', e=>{
+    if(!downXY) return;
+    const moved=Math.hypot(e.clientX-downXY[0],e.clientY-downXY[1]); downXY=null;
+    if(moved>6) return;   // 拖拽旋转视角，不视为点击
+    const obj=doPick(e);
+    if(obj) showInfo(obj.userData.pick); else infoPanel.classList.remove('show');
+  });
+  document.getElementById('iClose').addEventListener('click', ()=>infoPanel.classList.remove('show'));
+
+  /* ==================== 按钮 / 键盘交互 ==================== */
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    document.getElementById('intro').style.display='none';
+    warmVoices(); curTime=0; applyStage(0); setPlaying(true);
+  });
+  playBtn.addEventListener('click', togglePlay);
+  document.getElementById('prevBtn').addEventListener('click', ()=>jumpStage(findStage(curTime)-1));
+  document.getElementById('nextBtn').addEventListener('click', ()=>jumpStage(findStage(curTime)+1));
+  document.getElementById('replayBtn').addEventListener('click', replay);
+  muteBtn.addEventListener('click', toggleMute);
+  document.getElementById('speedSel').addEventListener('change', e=>{
+    rate=parseFloat(e.target.value);
+    if(isPlaying&&!muted) speak(stages[findStage(curTime)].voice);
+  });
+  document.getElementById('progress').addEventListener('click', e=>{
+    const r=e.currentTarget.getBoundingClientRect();
+    seek((e.clientX-r.left)/r.width*TOTAL);
+  });
+  document.getElementById('resetBtn').addEventListener('click', resetView);
+  const rotateBtn=document.getElementById('rotateBtn');
+  rotateBtn.addEventListener('click', ()=>{
+    controls.autoRotate=!controls.autoRotate; controls.autoRotateSpeed=1.2;
+    rotateBtn.classList.toggle('active',controls.autoRotate);
+  });
+  document.getElementById('fullBtn').addEventListener('click', toggleFullscreen);
+  window.addEventListener('keydown', e=>{
+    if(document.getElementById('intro').style.display!=='none') return;
+    if(['SELECT','INPUT','TEXTAREA'].indexOf(e.target.tagName)>=0) return;
+    const k=e.key.toLowerCase();
+    if(k===' '){ e.preventDefault(); if(e.target.tagName==='BUTTON') e.target.blur(); togglePlay(); }
+    else if(k==='arrowleft'){ e.preventDefault(); jumpStage(findStage(curTime)-1); }
+    else if(k==='arrowright'){ e.preventDefault(); jumpStage(findStage(curTime)+1); }
+    else if(k==='r'){ replay(); }
+    else if(k==='m'){ toggleMute(); }
+    else if(k==='f'){ toggleFullscreen(); }
+    else if(k==='escape'){ infoPanel.classList.remove('show'); }
+    else if(/^[1-8]$/.test(k)){ jumpStage(parseInt(k,10)-1); }
+  });
+
+  // 进度条阶段刻度
+  const marks=document.getElementById('pMarks');
+  stages.forEach(s=>{ const i=document.createElement('i'); i.style.left=(s.start/TOTAL*100)+'%'; marks.appendChild(i); });
+
+  // 顶部步骤导航（可点击跳转）
+  const stepNav=document.getElementById('stepNav');
+  const shortNames=['开场','环路','拓扑','① 根桥','② 根端口','③ 指定','④ 阻塞','总结'];
+  stages.forEach((s,i)=>{
+    const b=document.createElement('button');
+    b.className='step-btn'; b.title=s.badge+'（点击跳转）';
+    b.innerHTML='<span class="num">'+(i+1)+'</span>'+shortNames[i];
+    b.addEventListener('click', ()=>jumpStage(i));
+    stepNav.appendChild(b);
+  });
+
+  window.addEventListener('resize', ()=>{
+    camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight); labelRenderer.setSize(innerWidth,innerHeight);
+  });
+
+  /* ==================== 主循环 ==================== */
+  function animate(now){
+    requestAnimationFrame(animate);
+    const dt=Math.min(0.05,(now-lastFrame)/1000||0); lastFrame=now;
+    if(isPlaying){
+      curTime+=dt;
+      if(curTime>=TOTAL){ curTime=TOTAL; isPlaying=false; playBtn.textContent='▶'; stopVoice(); }
+      refreshUI();
+    }
+    updateVisuals(dt);
+    controls.update();
+    renderer.render(scene,camera);
+    labelRenderer.render(scene,camera);
+  }
+  // 打开页面即自动播放（动画/字幕/进度条），无需点击
+  warmVoices();
+  applyStage(0);          // 内部会尝试自动发声一次
+  setPlaying(true);
+  // 语音受浏览器自动播放策略限制：多数浏览器需一次用户手势才允许发声。
+  // 若自动发声被拦截，用户首次点击/按键/触摸时立即补播当前阶段语音。
+  let voiceUnlocked=false;
+  function unlockVoice(){
+    if(voiceUnlocked) return;
+    voiceUnlocked=true;
+    if(!muted && 'speechSynthesis' in window){
+      speechSynthesis.cancel();
+      speak(stages[findStage(curTime)].voice);
+    }
+  }
+  ['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev, unlockVoice, {once:true}));
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
